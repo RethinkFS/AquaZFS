@@ -1,0 +1,9 @@
+# util/aquafs
+fs/*.o
+fs/*.cc.d
+tests/results
+fs/version.h
+
+/build/
+/*-build-*/
+/.idea/
