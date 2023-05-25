@@ -8,10 +8,10 @@
 #include <queue>
 #include <utility>
 
-#include "rocksdb/io_status.h"
+#include "base/io_status.h"
 #include "util/coding.h"
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 
 /**
  * @brief Construct a new Raid Zoned Block Device object
@@ -542,4 +542,4 @@ Status RaidModeItem::DecodeFrom(Slice *input) {
   GetFixed32(input, &option);
   return Status::OK();
 }
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

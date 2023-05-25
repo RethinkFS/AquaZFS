@@ -13,8 +13,7 @@
 #include "io_aquafs.h"
 
 #include "zbd_aquafs.h"
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 // Indicate what stats info we want.
 class AquaFSSnapshotOptions {
@@ -113,4 +112,4 @@ class AquaFSSnapshot {
   std::vector<ZoneExtentSnapshot> extents_;
 };
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

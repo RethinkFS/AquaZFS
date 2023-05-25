@@ -15,7 +15,7 @@
 
 class ResettingGauge;
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 
 // using namespace prometheus;
 
@@ -32,7 +32,7 @@ class GaugeMetric {
   std::atomic<uint64_t> min;
 };
 
-class AquaFSPrometheusMetrics : public AQUAFS_NAMESPACE::AquaFSMetrics {
+class AquaFSPrometheusMetrics : public aquafs::AquaFSMetrics {
  private:
   std::shared_ptr<prometheus::Registry> registry_;
   std::unordered_map<AquaFSMetricsHistograms, std::shared_ptr<GaugeMetric>>

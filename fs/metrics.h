@@ -32,10 +32,9 @@
 
 #pragma once
 
-#include "rocksdb/env.h"
+#include "base/env.h"
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 class AquaFSMetricsGuard;
 class AquaFSSnapshot;
@@ -184,4 +183,4 @@ struct AquaFSMetricsLatencyGuard {
   AQUAFS_##sub_label##_##label##_##type
 // eg : AQUAFS_LABEL(WRITE, WAL, THROUGHPUT) => AQUAFS_WAL_WRITE_THROUGHPUT
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

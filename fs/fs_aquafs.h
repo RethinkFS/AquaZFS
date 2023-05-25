@@ -6,13 +6,8 @@
 
 #pragma once
 
-#if __cplusplus < 201703L
-#include "filesystem_utility.h"
-namespace fs = filesystem_utility;
-#else
 #include <filesystem>
 namespace fs = std::filesystem;
-#endif
 
 #include <memory>
 #include <thread>
@@ -22,16 +17,15 @@ namespace fs = std::filesystem;
 #include "metrics.h"
 #include "raid/zone_raid.h"
 #include "raid/zone_raid_auto.h"
-#include "rocksdb/env.h"
-#include "rocksdb/file_system.h"
+#include "base/env.h"
+#include "base/file_system.h"
 
-#include "rocksdb/status.h"
+#include "base/status.h"
 #include "snapshot.h"
 #include "version.h"
 #include "zbd_aquafs.h"
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 #if !defined(ROCKSDB_LITE) && defined(OS_LINUX)
 
@@ -500,4 +494,4 @@ Status AppendAquaFileSystem(
 Status ListAquaFileSystems(
     std::map<std::string, std::pair<std::string, ZbdBackendType>>& out_list);
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

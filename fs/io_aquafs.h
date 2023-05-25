@@ -6,12 +6,10 @@
 
 #pragma once
 
-#if !defined(ROCKSDB_LITE) && defined(OS_LINUX)
-
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <unistd.h>
 
 #include <atomic>
@@ -22,13 +20,12 @@
 #include <vector>
 
 
-#include "rocksdb/file_system.h"
-#include "rocksdb/io_status.h"
+#include "base/file_system.h"
+#include "base/io_status.h"
 
 #include "zbd_aquafs.h"
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 class ZoneExtent {
  public:
@@ -324,6 +321,4 @@ class ZonedRandomAccessFile : public FSRandomAccessFile {
   }
 };
 
-}  // namespace AQUAFS_NAMESPACE
-
-#endif  // !defined(ROCKSDB_LITE) && defined(OS_LINUX)
+}  // namespace aquafs

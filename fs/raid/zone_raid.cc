@@ -8,13 +8,9 @@
 #include <queue>
 #include <utility>
 
-#include "rocksdb/io_status.h"
+#include "base/io_status.h"
 
-#include "util/coding.h"
-#include "util/mutexlock.h"
-
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 const char *raid_mode_str(RaidMode mode) {
   switch (mode) {
@@ -130,4 +126,4 @@ bool AbstractRaidZonedBlockDevice::IsRAIDEnabled() const { return true; }
 RaidMode AbstractRaidZonedBlockDevice::getMainMode() const {
   return main_mode_;
 }
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

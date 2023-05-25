@@ -4,7 +4,7 @@
 
 #include "zone_raid0.h"
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 void Raid0ZonedBlockDevice::syncBackendInfo() {
   AbstractRaidZonedBlockDevice::syncBackendInfo();
   zone_sz_ *= nr_dev();
@@ -187,4 +187,4 @@ uint64_t Raid0ZonedBlockDevice::ZoneWp(std::unique_ptr<ZoneList> &zones,
                            return sum + d->ZoneWp(z, idx);
                          });
 }
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

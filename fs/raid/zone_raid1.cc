@@ -4,7 +4,7 @@
 
 #include "zone_raid1.h"
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 
 Raid1ZonedBlockDevice::Raid1ZonedBlockDevice(
     const std::shared_ptr<Logger> &logger,
@@ -101,4 +101,4 @@ void Raid1ZonedBlockDevice::syncBackendInfo() {
   AbstractRaidZonedBlockDevice::syncBackendInfo();
   // do nothing
 }
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

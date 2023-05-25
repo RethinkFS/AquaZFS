@@ -6,18 +6,15 @@
 
 #pragma once
 
-#if !defined(ROCKSDB_LITE) && defined(OS_LINUX)
-
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
 
-#include "rocksdb/io_status.h"
+#include "base/io_status.h"
 
 #include "zbd_aquafs.h"
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 class ZbdlibBackend : public ZonedBlockDeviceBackend {
  private:
@@ -91,6 +88,5 @@ class ZbdlibBackend : public ZonedBlockDeviceBackend {
   std::string ErrorToString(int err);
 };
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs
 
-#endif  // !defined(ROCKSDB_LITE) && defined(OS_LINUX)

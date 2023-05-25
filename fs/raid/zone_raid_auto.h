@@ -7,7 +7,7 @@
 
 #include "zone_raid.h"
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 class RaidAutoZonedBlockDevice : public AbstractRaidZonedBlockDevice {
  public:
   // use `map` or `unordered_map` to store raid mappings
@@ -121,6 +121,6 @@ class RaidInfoAppend {
   RaidAutoZonedBlockDevice::device_zone_map_t device_zone_map;
   RaidAutoZonedBlockDevice::mode_map_t mode_map;
 };
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs
 
 #endif  // ROCKSDB_ZONE_RAID_AUTO_H

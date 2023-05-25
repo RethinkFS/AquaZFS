@@ -9,7 +9,7 @@
 
 #include "zone_raid.h"
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 class RaidCZonedBlockDevice : public AbstractRaidZonedBlockDevice {
  public:
   RaidCZonedBlockDevice(
@@ -40,6 +40,6 @@ class RaidCZonedBlockDevice : public AbstractRaidZonedBlockDevice {
  protected:
   void syncBackendInfo() override;
 };
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs
 
 #endif  // ROCKSDB_ZONE_RAIDC_H

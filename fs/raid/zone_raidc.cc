@@ -5,7 +5,7 @@
 #include "zone_raidc.h"
 
 #include <cstdint>
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 RaidCZonedBlockDevice::RaidCZonedBlockDevice(
     const std::shared_ptr<Logger> &logger,
     std::vector<std::unique_ptr<ZonedBlockDeviceBackend>> &&devices)
@@ -203,4 +203,4 @@ uint64_t RaidCZonedBlockDevice::ZoneWp(std::unique_ptr<ZoneList> &zones,
   }
   return 0;
 }
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

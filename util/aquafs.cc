@@ -8,7 +8,7 @@
 #include <fs/fs_aquafs.h>
 #include <fs/version.h>
 #include <gflags/gflags.h>
-#include <rocksdb/file_system.h>
+#include <base/file_system.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -44,7 +44,7 @@ DEFINE_string(src_file, "", "Source file path");
 DEFINE_string(dest_file, "", "Destination file path");
 DEFINE_bool(enable_gc, false, "Enable garbage collection");
 
-namespace AQUAFS_NAMESPACE {
+namespace aquafs {
 
 void AddDirSeparatorAtEnd(std::string &path) {
   if (path.empty() || path.back() != '/') path = path + "/";
@@ -780,7 +780,7 @@ int aquafs_tool_fsinfo() {
   return 0;
 }
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs
 
 int main(int argc, char **argv) {
   gflags::SetUsageMessage(
@@ -813,29 +813,29 @@ int main(int argc, char **argv) {
     return 1;
   }
   if (subcmd == "mkfs") {
-    return AQUAFS_NAMESPACE::aquafs_tool_mkfs();
+    return aquafs::aquafs_tool_mkfs();
   } else if (subcmd == "list") {
-    return AQUAFS_NAMESPACE::aquafs_tool_list();
+    return aquafs::aquafs_tool_list();
   } else if (subcmd == "ls-uuid") {
-    return AQUAFS_NAMESPACE::aquafs_tool_lsuuid();
+    return aquafs::aquafs_tool_lsuuid();
   } else if (subcmd == "df") {
-    return AQUAFS_NAMESPACE::aquafs_tool_df();
+    return aquafs::aquafs_tool_df();
   } else if (subcmd == "backup") {
-    return AQUAFS_NAMESPACE::aquafs_tool_backup();
+    return aquafs::aquafs_tool_backup();
   } else if (subcmd == "restore") {
-    return AQUAFS_NAMESPACE::aquafs_tool_restore();
+    return aquafs::aquafs_tool_restore();
   } else if (subcmd == "dump") {
-    return AQUAFS_NAMESPACE::aquafs_tool_dump();
+    return aquafs::aquafs_tool_dump();
   } else if (subcmd == "fs-info") {
-    return AQUAFS_NAMESPACE::aquafs_tool_fsinfo();
+    return aquafs::aquafs_tool_fsinfo();
   } else if (subcmd == "link") {
-    return AQUAFS_NAMESPACE::aquafs_tool_link();
+    return aquafs::aquafs_tool_link();
   } else if (subcmd == "delete") {
-    return AQUAFS_NAMESPACE::aquafs_tool_delete_file();
+    return aquafs::aquafs_tool_delete_file();
   } else if (subcmd == "rename") {
-    return AQUAFS_NAMESPACE::aquafs_tool_rename_file();
+    return aquafs::aquafs_tool_rename_file();
   } else if (subcmd == "rmdir") {
-    return AQUAFS_NAMESPACE::aquafs_tool_remove_directory();
+    return aquafs::aquafs_tool_remove_directory();
   } else {
     fprintf(stderr, "Subcommand not recognized: %s\n", subcmd.c_str());
     return 1;

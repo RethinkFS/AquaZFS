@@ -7,7 +7,6 @@
 #pragma once
 
 #include <cstdint>
-#if !defined(ROCKSDB_LITE) && defined(OS_LINUX)
 
 #include <errno.h>
 #include <libzbd/zbd.h>
@@ -26,9 +25,9 @@
 
 
 #include "metrics.h"
-#include "rocksdb/env.h"
-#include "rocksdb/file_system.h"
-#include "rocksdb/io_status.h"
+#include "base/env.h"
+#include "base/file_system.h"
+#include "base/io_status.h"
 
 
 #ifndef KB
@@ -52,8 +51,7 @@
 #define AQUAFS_MIN_ZONES (32)
 #endif
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 class ZonedBlockDevice;
 class ZonedBlockDeviceBackend;
@@ -270,6 +268,5 @@ class ZonedBlockDevice {
   IOStatus AllocateEmptyZone(Zone **zone_out);
 };
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs
 
-#endif  // !defined(ROCKSDB_LITE) && defined(OS_LINUX)

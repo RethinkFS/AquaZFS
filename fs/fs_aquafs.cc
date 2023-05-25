@@ -26,7 +26,7 @@
 #endif
 
 
-#include "rocksdb/utilities/object_registry.h"
+#include "base/utilities/object_registry.h"
 #include "snapshot.h"
 #include "util/coding.h"
 #include "util/crc32c.h"
@@ -35,8 +35,7 @@
 
 #define DEFAULT_AQUAV_LOG_PATH "/tmp/"
 
-namespace AQUAFS_NAMESPACE {
-using namespace ROCKSDB_NAMESPACE;
+namespace aquafs {
 
 Status Superblock::DecodeFrom(Slice* input) {
   if (input->size() != ENCODED_SIZE) {
@@ -2028,11 +2027,11 @@ FactoryFunc<FileSystem> aquafs_filesystem_reg =
           f->reset(fs);
           return f->get();
         });
-};  // namespace AQUAFS_NAMESPACE
+};  // namespace aquafs
 
 #else
 
-#include "rocksdb/env.h"
+#include "base/env.h"
 
 namespace ROCKSDB_NAMESPACE {
 Status NewAquaFS(FileSystem** /*fs*/, const ZbdBackendType /*backend_type*/,
