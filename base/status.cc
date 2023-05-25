@@ -3,3 +3,7 @@
 //
 
 #include "status.h"
+
+namespace aquafs {
+
+}

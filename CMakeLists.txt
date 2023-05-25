@@ -33,12 +33,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/util
 add_library(aquazfs STATIC ${aquafs_SOURCES} ${aquafs_HEADERS})
 target_link_libraries(aquazfs ${aquafs_LIBS})
 
-add_executable(aquafs ${CMAKE_CURRENT_SOURCE_DIR}/util/aquafs.cc)
-target_link_libraries(aquafs aquazfs)
-
-add_executable(defconfig ${CMAKE_CURRENT_SOURCE_DIR}/util/defconfig.cc)
-target_link_libraries(defconfig aquazfs)
-
 file(GLOB programs ${CMAKE_CURRENT_SOURCE_DIR}/programs/*.cc)
 foreach (program ${programs})
     cmake_path(GET program STEM name)
