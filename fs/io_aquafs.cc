@@ -25,7 +25,7 @@
 
 #include "base/env.h"
 
-#include "util/coding.h"
+#include "base/coding.h"
 
 namespace aquafs {
 
@@ -149,7 +149,7 @@ Status ZoneFile::DecodeFrom(Slice* input) {
         uint32_t lt;
         if (!GetFixed32(input, &lt))
           return Status::Corruption("ZoneFile", "Missing life time hint");
-        lifetime_ = (Env::WriteLifeTimeHint)lt;
+        lifetime_ = (WriteLifeTimeHint)lt;
         break;
       case kExtent:
         extent = new ZoneExtent(0, 0, nullptr);
@@ -233,7 +233,7 @@ ZoneFile::ZoneFile(ZonedBlockDevice* zbd, uint64_t file_id,
       active_zone_(NULL),
       extent_start_(NO_EXTENT),
       extent_filepos_(0),
-      lifetime_(Env::WLTH_NOT_SET),
+      lifetime_(WLTH_NOT_SET),
       io_type_(IOType::kUnknown),
       file_size_(0),
       file_id_(file_id),
@@ -765,7 +765,7 @@ IOStatus ZoneFile::RemoveLinkName(const std::string& linkf) {
   return IOStatus::OK();
 }
 
-IOStatus ZoneFile::SetWriteLifeTimeHint(Env::WriteLifeTimeHint lifetime) {
+IOStatus ZoneFile::SetWriteLifeTimeHint(WriteLifeTimeHint lifetime) {
   lifetime_ = lifetime;
   return IOStatus::OK();
 }
@@ -1034,7 +1034,7 @@ IOStatus ZonedWritableFile::PositionedAppend(const Slice& data, uint64_t offset,
   return s;
 }
 
-void ZonedWritableFile::SetWriteLifeTimeHint(Env::WriteLifeTimeHint hint) {
+void ZonedWritableFile::SetWriteLifeTimeHint(WriteLifeTimeHint hint) {
   zoneFile_->SetWriteLifeTimeHint(hint);
 }
 

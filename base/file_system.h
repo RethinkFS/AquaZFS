@@ -14,6 +14,28 @@
 
 namespace aquafs {
 
+// These values match Linux definition
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/fcntl.h#n56
+enum KWriteLifeTimeHint {
+  kWLTHNotSet = 0,  // No hint information set
+  kWLTHNone,        // No hints about write life time
+  kWLTHShort,       // Data written has a short life time
+  kWLTHMedium,      // Data written has a medium life time
+  kWLTHLong,        // Data written has a long life time
+  kWLTHExtreme,     // Data written has an extremely long life time
+};
+
+// These values match Linux definition
+// https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/fcntl.h#n56
+enum WriteLifeTimeHint {
+  WLTH_NOT_SET = 0,  // No hint information set
+  WLTH_NONE,         // No hints about write life time
+  WLTH_SHORT,        // Data written has a short life time
+  WLTH_MEDIUM,       // Data written has a medium life time
+  WLTH_LONG,         // Data written has a long life time
+  WLTH_EXTREME,      // Data written has an extremely long life time
+};
+
 struct FileAttributes {
   // File name
   std::string name;
@@ -150,7 +172,7 @@ struct DirFsyncOptions {
 // File scope options that control how a file is opened/created and accessed
 // while its open. We may add more options here in the future such as
 // redundancy level, media to use etc.
-struct FileOptions {
+struct FileOptions : public Env {
   // Embedded IOOptions to control the parameters for any IOs that need
   // to be issued for the file open/creation
   IOOptions io_options;
@@ -332,17 +354,6 @@ public:
   // virtual IOStatus NewRandomAccessFile(
   //     const std::string &fname, const FileOptions &file_opts,
   //     std::unique_ptr<FSRandomAccessFile> *result, IODebugContext *dbg) = 0;
-
-  // These values match Linux definition
-  // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/fcntl.h#n56
-  enum WriteLifeTimeHint {
-    kWLTHNotSet = 0,  // No hint information set
-    kWLTHNone,        // No hints about write life time
-    kWLTHShort,       // Data written has a short life time
-    kWLTHMedium,      // Data written has a medium life time
-    kWLTHLong,        // Data written has a long life time
-    kWLTHExtreme,     // Data written has an extremely long life time
-  };
 
   // Create an object that writes to a new file with the specified
   // name.  Deletes any existing file with the same name and creates a
@@ -687,6 +698,640 @@ public:
 private:
   void operator=(const FileSystem &);
 };
+
+// A file abstraction for reading sequentially through a file
+class FSSequentialFile {
+public:
+  FSSequentialFile() {}
+
+  virtual ~FSSequentialFile() {}
+
+  // Read up to "n" bytes from the file.  "scratch[0..n-1]" may be
+  // written by this routine.  Sets "*result" to the data that was
+  // read (including if fewer than "n" bytes were successfully read).
+  // May set "*result" to point at data in "scratch[0..n-1]", so
+  // "scratch[0..n-1]" must be live when "*result" is used.
+  // If an error was encountered, returns a non-OK status.
+  //
+  // After call, result->size() < n only if end of file has been
+  // reached (or non-OK status). Read might fail if called again after
+  // first result->size() < n.
+  //
+  // REQUIRES: External synchronization
+  virtual IOStatus Read(size_t n, const IOOptions &options, Slice *result,
+                        char *scratch, IODebugContext *dbg) = 0;
+
+  // Skip "n" bytes from the file. This is guaranteed to be no
+  // slower that reading the same data, but may be faster.
+  //
+  // If end of file is reached, skipping will stop at the end of the
+  // file, and Skip will return OK.
+  //
+  // REQUIRES: External synchronization
+  virtual IOStatus Skip(uint64_t n) = 0;
+
+  // Indicates the upper layers if the current SequentialFile implementation
+  // uses direct IO.
+  virtual bool use_direct_io() const { return false; }
+
+  // Use the returned alignment value to allocate
+  // aligned buffer for Direct I/O
+  virtual size_t GetRequiredBufferAlignment() const { return kDefaultPageSize; }
+
+  // Remove any kind of caching of data from the offset to offset+length
+  // of this file. If the length is 0, then it refers to the end of file.
+  // If the system is not caching the file contents, then this is a noop.
+  virtual IOStatus InvalidateCache(size_t /*offset*/, size_t /*length*/) {
+    return IOStatus::NotSupported("InvalidateCache not supported.");
+  }
+
+  // Positioned Read for direct I/O
+  // If Direct I/O enabled, offset, n, and scratch should be properly aligned
+  virtual IOStatus PositionedRead(uint64_t /*offset*/, size_t /*n*/,
+                                  const IOOptions & /*options*/,
+                                  Slice * /*result*/, char * /*scratch*/,
+                                  IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("PositionedRead");
+  }
+
+  // EXPERIMENTAL
+  // When available, returns the actual temperature for the file. This is
+  // useful in case some outside process moves a file from one tier to another,
+  // though the temperature is generally expected not to change while a file is
+  // open.
+  virtual Temperature GetTemperature() const { return Temperature::kUnknown; }
+
+  // If you're adding methods here, remember to add them to
+  // SequentialFileWrapper too.
+};
+
+// A read IO request structure for use in MultiRead and asynchronous Read APIs.
+struct FSReadRequest {
+  // Input parameter that represents the file offset in bytes.
+  uint64_t offset;
+
+  // Input parameter that represents the length to read in bytes. `result` only
+  // returns fewer bytes if end of file is hit (or `status` is not OK).
+  size_t len;
+
+  // A buffer that MultiRead() can optionally place data in. It can
+  // ignore this and allocate its own buffer.
+  // The lifecycle of scratch will be until IO is completed.
+  //
+  // In case of asynchronous reads, its an output parameter and it will be
+  // maintained until callback has been called. Scratch is allocated by RocksDB
+  // and will be passed to underlying FileSystem.
+  char *scratch;
+
+  // Output parameter set by MultiRead() to point to the data buffer, and
+  // the number of valid bytes
+  //
+  // In case of asynchronous reads, this output parameter is set by Async Read
+  // APIs to point to the data buffer, and
+  // the number of valid bytes.
+  // Slice result should point to scratch i.e the data should
+  // always be read into scratch.
+  Slice result;
+
+  // Output parameter set by underlying FileSystem that represents status of
+  // read request.
+  IOStatus status;
+};
+
+// A file abstraction for randomly reading the contents of a file.
+class FSRandomAccessFile {
+public:
+  FSRandomAccessFile() {}
+
+  virtual ~FSRandomAccessFile() {}
+
+  // Read up to "n" bytes from the file starting at "offset".
+  // "scratch[0..n-1]" may be written by this routine.  Sets "*result"
+  // to the data that was read (including if fewer than "n" bytes were
+  // successfully read).  May set "*result" to point at data in
+  // "scratch[0..n-1]", so "scratch[0..n-1]" must be live when
+  // "*result" is used.  If an error was encountered, returns a non-OK
+  // status.
+  //
+  // After call, result->size() < n only if end of file has been
+  // reached (or non-OK status). Read might fail if called again after
+  // first result->size() < n.
+  //
+  // Safe for concurrent use by multiple threads.
+  // If Direct I/O enabled, offset, n, and scratch should be aligned properly.
+  virtual IOStatus Read(uint64_t offset, size_t n, const IOOptions &options,
+                        Slice *result, char *scratch,
+                        IODebugContext *dbg) const = 0;
+
+  // Readahead the file starting from offset by n bytes for caching.
+  // If it's not implemented (default: `NotSupported`), RocksDB will create
+  // internal prefetch buffer to improve read performance.
+  virtual IOStatus Prefetch(uint64_t /*offset*/, size_t /*n*/,
+                            const IOOptions & /*options*/,
+                            IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("Prefetch");
+  }
+
+  // Read a bunch of blocks as described by reqs. The blocks can
+  // optionally be read in parallel. This is a synchronous call, i.e it
+  // should return after all reads have completed. The reads will be
+  // non-overlapping but can be in any order. If the function return Status
+  // is not ok, status of individual requests will be ignored and return
+  // status will be assumed for all read requests. The function return status
+  // is only meant for errors that occur before processing individual read
+  // requests.
+  virtual IOStatus MultiRead(FSReadRequest *reqs, size_t num_reqs,
+                             const IOOptions &options, IODebugContext *dbg) {
+    assert(reqs != nullptr);
+    for (size_t i = 0; i < num_reqs; ++i) {
+      FSReadRequest &req = reqs[i];
+      req.status =
+          Read(req.offset, req.len, options, &req.result, req.scratch, dbg);
+    }
+    return IOStatus::OK();
+  }
+
+  // Tries to get an unique ID for this file that will be the same each time
+  // the file is opened (and will stay the same while the file is open).
+  // Furthermore, it tries to make this ID at most "max_size" bytes. If such an
+  // ID can be created this function returns the length of the ID and places it
+  // in "id"; otherwise, this function returns 0, in which case "id"
+  // may not have been modified.
+  //
+  // This function guarantees, for IDs from a given environment, two unique ids
+  // cannot be made equal to each other by adding arbitrary bytes to one of
+  // them. That is, no unique ID is the prefix of another.
+  //
+  // This function guarantees that the returned ID will not be interpretable as
+  // a single varint.
+  //
+  // Note: these IDs are only valid for the duration of the process.
+  virtual size_t GetUniqueId(char * /*id*/, size_t /*max_size*/) const {
+    return 0;  // Default implementation to prevent issues with backwards
+    // compatibility.
+  };
+
+  enum AccessPattern {
+    kNormal, kRandom, kSequential, kWillNeed, kWontNeed
+  };
+
+  virtual void Hint(AccessPattern /*pattern*/) {}
+
+  // Indicates the upper layers if the current RandomAccessFile implementation
+  // uses direct IO.
+  virtual bool use_direct_io() const { return false; }
+
+  // Use the returned alignment value to allocate
+  // aligned buffer for Direct I/O
+  virtual size_t GetRequiredBufferAlignment() const { return kDefaultPageSize; }
+
+  // Remove any kind of caching of data from the offset to offset+length
+  // of this file. If the length is 0, then it refers to the end of file.
+  // If the system is not caching the file contents, then this is a noop.
+  virtual IOStatus InvalidateCache(size_t /*offset*/, size_t /*length*/) {
+    return IOStatus::NotSupported("InvalidateCache not supported.");
+  }
+
+  // EXPERIMENTAL
+  // This API reads the requested data in FSReadRequest asynchronously. This is
+  // a asynchronous call, i.e it should return after submitting the request.
+  //
+  // When the read request is completed, callback function specified in cb
+  // should be called with arguments cb_arg and the result populated in
+  // FSReadRequest with result and status fileds updated by FileSystem.
+  // cb_arg should be used by the callback to track the original request
+  // submitted.
+  //
+  // This API should also populate io_handle which should be used by
+  // underlying FileSystem to store the context in order to distinguish the read
+  // requests at their side and provide the custom deletion function in del_fn.
+  // RocksDB guarantees that the del_fn for io_handle will be called after
+  // receiving the callback. Furthermore, RocksDB guarantees that if it calls
+  // the Poll API for this io_handle, del_fn will be called after the Poll
+  // returns. RocksDB is responsible for managing the lifetime of io_handle.
+  //
+  // req contains the request offset and size passed as input parameter of read
+  // request and result and status fields are output parameter set by underlying
+  // FileSystem. The data should always be read into scratch field.
+  //
+  // Default implementation is to read the data synchronously.
+  virtual IOStatus ReadAsync(
+      FSReadRequest &req, const IOOptions &opts,
+      std::function<void(const FSReadRequest &, void *)> cb, void *cb_arg,
+      void ** /*io_handle*/, IOHandleDeleter * /*del_fn*/, IODebugContext *dbg) {
+    req.status =
+        Read(req.offset, req.len, opts, &(req.result), req.scratch, dbg);
+    cb(req, cb_arg);
+    return IOStatus::OK();
+  }
+
+  // EXPERIMENTAL
+  // When available, returns the actual temperature for the file. This is
+  // useful in case some outside process moves a file from one tier to another,
+  // though the temperature is generally expected not to change while a file is
+  // open.
+  virtual Temperature GetTemperature() const { return Temperature::kUnknown; }
+
+  // If you're adding methods here, remember to add them to
+  // RandomAccessFileWrapper too.
+};
+
+// A data structure brings the data verification information, which is
+// used together with data being written to a file.
+struct DataVerificationInfo {
+  // checksum of the data being written.
+  Slice checksum;
+};
+
+// A file abstraction for sequential writing.  The implementation
+// must provide buffering since callers may append small fragments
+// at a time to the file.
+class FSWritableFile {
+public:
+  FSWritableFile()
+      : last_preallocated_block_(0),
+        preallocation_block_size_(0),
+        io_priority_(IO_TOTAL),
+        write_hint_(WLTH_NOT_SET),
+        strict_bytes_per_sync_(false) {}
+
+  // explicit FSWritableFile(const FileOptions& options)
+  //     : last_preallocated_block_(0),
+  //       preallocation_block_size_(0),
+  //       io_priority_(IO_TOTAL),
+  //       write_hint_(WLTH_NOT_SET),
+  //       strict_bytes_per_sync_(options.strict_bytes_per_sync) {}
+
+  virtual ~FSWritableFile() {}
+
+  // Append data to the end of the file
+  // Note: A WritableFile object must support either Append or
+  // PositionedAppend, so the users cannot mix the two.
+  virtual IOStatus Append(const Slice &data, const IOOptions &options,
+                          IODebugContext *dbg) = 0;
+
+  // Append data with verification information.
+  // Note that this API change is experimental and it might be changed in
+  // the future. Currently, RocksDB only generates crc32c based checksum for
+  // the file writes when the checksum handoff option is set.
+  // Expected behavior: if the handoff_checksum_type in FileOptions (currently,
+  // ChecksumType::kCRC32C is set as default) is not supported by this
+  // FSWritableFile, the information in DataVerificationInfo can be ignored
+  // (i.e. does not perform checksum verification).
+  virtual IOStatus Append(const Slice &data, const IOOptions &options,
+                          const DataVerificationInfo & /* verification_info */,
+                          IODebugContext *dbg) {
+    return Append(data, options, dbg);
+  }
+
+  // PositionedAppend data to the specified offset. The new EOF after append
+  // must be larger than the previous EOF. This is to be used when writes are
+  // not backed by OS buffers and hence has to always start from the start of
+  // the sector. The implementation thus needs to also rewrite the last
+  // partial sector.
+  // Note: PositionAppend does not guarantee moving the file offset after the
+  // write. A WritableFile object must support either Append or
+  // PositionedAppend, so the users cannot mix the two.
+  //
+  // PositionedAppend() can only happen on the page/sector boundaries. For that
+  // reason, if the last write was an incomplete sector we still need to rewind
+  // back to the nearest sector/page and rewrite the portion of it with whatever
+  // we need to add. We need to keep where we stop writing.
+  //
+  // PositionedAppend() can only write whole sectors. For that reason we have to
+  // pad with zeros for the last write and trim the file when closing according
+  // to the position we keep in the previous step.
+  //
+  // PositionedAppend() requires aligned buffer to be passed in. The alignment
+  // required is queried via GetRequiredBufferAlignment()
+  virtual IOStatus PositionedAppend(const Slice & /* data */,
+                                    uint64_t /* offset */,
+                                    const IOOptions & /*options*/,
+                                    IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("PositionedAppend");
+  }
+
+  // PositionedAppend data with verification information.
+  // Note that this API change is experimental and it might be changed in
+  // the future. Currently, RocksDB only generates crc32c based checksum for
+  // the file writes when the checksum handoff option is set.
+  // Expected behavior: if the handoff_checksum_type in FileOptions (currently,
+  // ChecksumType::kCRC32C is set as default) is not supported by this
+  // FSWritableFile, the information in DataVerificationInfo can be ignored
+  // (i.e. does not perform checksum verification).
+  virtual IOStatus PositionedAppend(
+      const Slice & /* data */, uint64_t /* offset */,
+      const IOOptions & /*options*/,
+      const DataVerificationInfo & /* verification_info */,
+      IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("PositionedAppend");
+  }
+
+  // Truncate is necessary to trim the file to the correct size
+  // before closing. It is not always possible to keep track of the file
+  // size due to whole pages writes. The behavior is undefined if called
+  // with other writes to follow.
+  virtual IOStatus Truncate(uint64_t /*size*/, const IOOptions & /*options*/,
+                            IODebugContext * /*dbg*/) {
+    return IOStatus::OK();
+  }
+
+  virtual IOStatus Close(const IOOptions & /*options*/,
+                         IODebugContext * /*dbg*/) = 0;
+
+  virtual IOStatus Flush(const IOOptions &options, IODebugContext *dbg) = 0;
+
+  virtual IOStatus Sync(const IOOptions &options,
+                        IODebugContext *dbg) = 0;  // sync data
+
+  /*
+   * Sync data and/or metadata as well.
+   * By default, sync only data.
+   * Override this method for environments where we need to sync
+   * metadata as well.
+   */
+  virtual IOStatus Fsync(const IOOptions &options, IODebugContext *dbg) {
+    return Sync(options, dbg);
+  }
+
+  // true if Sync() and Fsync() are safe to call concurrently with Append()
+  // and Flush().
+  virtual bool IsSyncThreadSafe() const { return false; }
+
+  // Indicates the upper layers if the current WritableFile implementation
+  // uses direct IO.
+  virtual bool use_direct_io() const { return false; }
+
+  // Use the returned alignment value to allocate
+  // aligned buffer for Direct I/O
+  virtual size_t GetRequiredBufferAlignment() const { return kDefaultPageSize; }
+
+  virtual void SetWriteLifeTimeHint(WriteLifeTimeHint hint) {
+    write_hint_ = hint;
+  }
+
+  /*
+   * If rate limiting is enabled, change the file-granularity priority used in
+   * rate-limiting writes.
+   *
+   * In the presence of finer-granularity priority such as
+   * `WriteOptions::rate_limiter_priority`, this file-granularity priority may
+   * be overridden by a non-IO_TOTAL finer-granularity priority and used as
+   * a fallback for IO_TOTAL finer-granularity priority.
+   *
+   * If rate limiting is not enabled, this call has no effect.
+   */
+  virtual void SetIOPriority(IOPriority pri) { io_priority_ = pri; }
+
+  virtual IOPriority GetIOPriority() { return io_priority_; }
+
+  virtual WriteLifeTimeHint GetWriteLifeTimeHint() { return write_hint_; }
+
+  /*
+   * Get the size of valid data in the file.
+   */
+  virtual uint64_t GetFileSize(const IOOptions & /*options*/,
+                               IODebugContext * /*dbg*/) {
+    return 0;
+  }
+
+  /*
+   * Get and set the default pre-allocation block size for writes to
+   * this file.  If non-zero, then Allocate will be used to extend the
+   * underlying storage of a file (generally via fallocate) if the Env
+   * instance supports it.
+   */
+  virtual void SetPreallocationBlockSize(size_t size) {
+    preallocation_block_size_ = size;
+  }
+
+  virtual void GetPreallocationStatus(size_t *block_size,
+                                      size_t *last_allocated_block) {
+    *last_allocated_block = last_preallocated_block_;
+    *block_size = preallocation_block_size_;
+  }
+
+  // For documentation, refer to RandomAccessFile::GetUniqueId()
+  virtual size_t GetUniqueId(char * /*id*/, size_t /*max_size*/) const {
+    return 0;  // Default implementation to prevent issues with backwards
+  }
+
+  // Remove any kind of caching of data from the offset to offset+length
+  // of this file. If the length is 0, then it refers to the end of file.
+  // If the system is not caching the file contents, then this is a noop.
+  // This call has no effect on dirty pages in the cache.
+  virtual IOStatus InvalidateCache(size_t /*offset*/, size_t /*length*/) {
+    return IOStatus::NotSupported("InvalidateCache not supported.");
+  }
+
+  // Sync a file range with disk.
+  // offset is the starting byte of the file range to be synchronized.
+  // nbytes specifies the length of the range to be synchronized.
+  // This asks the OS to initiate flushing the cached data to disk,
+  // without waiting for completion.
+  // Default implementation does nothing.
+  virtual IOStatus RangeSync(uint64_t /*offset*/, uint64_t /*nbytes*/,
+                             const IOOptions &options, IODebugContext *dbg) {
+    if (strict_bytes_per_sync_) {
+      return Sync(options, dbg);
+    }
+    return IOStatus::OK();
+  }
+
+  // PrepareWrite performs any necessary preparation for a write
+  // before the write actually occurs.  This allows for pre-allocation
+  // of space on devices where it can result in less file
+  // fragmentation and/or less waste from over-zealous filesystem
+  // pre-allocation.
+  virtual void PrepareWrite(size_t offset, size_t len, const IOOptions &options,
+                            IODebugContext *dbg) {
+    if (preallocation_block_size_ == 0) {
+      return;
+    }
+    // If this write would cross one or more preallocation blocks,
+    // determine what the last preallocation block necessary to
+    // cover this write would be and Allocate to that point.
+    const auto block_size = preallocation_block_size_;
+    size_t new_last_preallocated_block =
+        (offset + len + block_size - 1) / block_size;
+    if (new_last_preallocated_block > last_preallocated_block_) {
+      size_t num_spanned_blocks =
+          new_last_preallocated_block - last_preallocated_block_;
+      Allocate(block_size * last_preallocated_block_,
+               block_size * num_spanned_blocks, options, dbg)
+          .PermitUncheckedError();
+      last_preallocated_block_ = new_last_preallocated_block;
+    }
+  }
+
+  // Pre-allocates space for a file.
+  virtual IOStatus Allocate(uint64_t /*offset*/, uint64_t /*len*/,
+                            const IOOptions & /*options*/,
+                            IODebugContext * /*dbg*/) {
+    return IOStatus::OK();
+  }
+
+  // If you're adding methods here, remember to add them to
+  // WritableFileWrapper too.
+
+protected:
+  size_t preallocation_block_size() { return preallocation_block_size_; }
+
+private:
+  size_t last_preallocated_block_;
+  size_t preallocation_block_size_;
+
+  // No copying allowed
+  FSWritableFile(const FSWritableFile &);
+
+  void operator=(const FSWritableFile &);
+
+protected:
+  IOPriority io_priority_;
+  WriteLifeTimeHint write_hint_;
+  const bool strict_bytes_per_sync_;
+};
+
+// A file abstraction for random reading and writing.
+class FSRandomRWFile {
+public:
+  FSRandomRWFile() {}
+
+  virtual ~FSRandomRWFile() {}
+
+  // Indicates if the class makes use of direct I/O
+  // If false you must pass aligned buffer to Write()
+  virtual bool use_direct_io() const { return false; }
+
+  // Use the returned alignment value to allocate
+  // aligned buffer for Direct I/O
+  virtual size_t GetRequiredBufferAlignment() const { return kDefaultPageSize; }
+
+  // Write bytes in `data` at  offset `offset`, Returns Status::OK() on success.
+  // Pass aligned buffer when use_direct_io() returns true.
+  virtual IOStatus Write(uint64_t offset, const Slice &data,
+                         const IOOptions &options, IODebugContext *dbg) = 0;
+
+  // Read up to `n` bytes starting from offset `offset` and store them in
+  // result, provided `scratch` size should be at least `n`.
+  //
+  // After call, result->size() < n only if end of file has been
+  // reached (or non-OK status). Read might fail if called again after
+  // first result->size() < n.
+  //
+  // Returns Status::OK() on success.
+  virtual IOStatus Read(uint64_t offset, size_t n, const IOOptions &options,
+                        Slice *result, char *scratch,
+                        IODebugContext *dbg) const = 0;
+
+  virtual IOStatus Flush(const IOOptions &options, IODebugContext *dbg) = 0;
+
+  virtual IOStatus Sync(const IOOptions &options, IODebugContext *dbg) = 0;
+
+  virtual IOStatus Fsync(const IOOptions &options, IODebugContext *dbg) {
+    return Sync(options, dbg);
+  }
+
+  virtual IOStatus Close(const IOOptions &options, IODebugContext *dbg) = 0;
+
+  // EXPERIMENTAL
+  // When available, returns the actual temperature for the file. This is
+  // useful in case some outside process moves a file from one tier to another,
+  // though the temperature is generally expected not to change while a file is
+  // open.
+  virtual Temperature GetTemperature() const { return Temperature::kUnknown; }
+
+  // If you're adding methods here, remember to add them to
+  // RandomRWFileWrapper too.
+
+  // No copying allowed
+  FSRandomRWFile(const RandomRWFile &) = delete;
+
+  FSRandomRWFile &operator=(const RandomRWFile &) = delete;
+};
+
+// MemoryMappedFileBuffer object represents a memory-mapped file's raw buffer.
+// Subclasses should release the mapping upon destruction.
+class FSMemoryMappedFileBuffer {
+public:
+  FSMemoryMappedFileBuffer(void *_base, size_t _length)
+      : base_(_base), length_(_length) {}
+
+  virtual ~FSMemoryMappedFileBuffer() = 0;
+
+  // We do not want to unmap this twice. We can make this class
+  // movable if desired, however, since
+  FSMemoryMappedFileBuffer(const FSMemoryMappedFileBuffer &) = delete;
+
+  FSMemoryMappedFileBuffer &operator=(const FSMemoryMappedFileBuffer &) = delete;
+
+  void *GetBase() const { return base_; }
+
+  size_t GetLen() const { return length_; }
+
+protected:
+  void *base_;
+  const size_t length_;
+};
+
+// Directory object represents collection of files and implements
+// filesystem operations that can be executed on directories.
+class FSDirectory {
+public:
+  virtual ~FSDirectory() {}
+
+  // Fsync directory. Can be called concurrently from multiple threads.
+  virtual IOStatus Fsync(const IOOptions &options, IODebugContext *dbg) = 0;
+
+  // FsyncWithDirOptions after renaming a file. Depends on the filesystem, it
+  // may fsync directory or just the renaming file (e.g. btrfs). By default, it
+  // just calls directory fsync.
+  virtual IOStatus FsyncWithDirOptions(
+      const IOOptions &options, IODebugContext *dbg,
+      const DirFsyncOptions & /*dir_fsync_options*/) {
+    return Fsync(options, dbg);
+  }
+
+  // Close directory
+  virtual IOStatus Close(const IOOptions & /*options*/,
+                         IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("Close");
+  }
+
+  virtual size_t GetUniqueId(char * /*id*/, size_t /*max_size*/) const {
+    return 0;
+  }
+
+  // If you're adding methods here, remember to add them to
+  // DirectoryWrapper too.
+};
+
+// Below are helpers for wrapping most of the classes in this file.
+// They forward all calls to another instance of the class.
+// Useful when wrapping the default implementations.
+// Typical usage is to inherit your wrapper from *Wrapper, e.g.:
+//
+// class MySequentialFileWrapper : public
+// ROCKSDB_NAMESPACE::FSSequentialFileWrapper {
+//  public:
+//   MySequentialFileWrapper(ROCKSDB_NAMESPACE::FSSequentialFile* target):
+//     ROCKSDB_NAMESPACE::FSSequentialFileWrapper(target) {}
+//   Status Read(size_t n, FileSystem::IOOptions& options, Slice* result,
+//               char* scratch, FileSystem::IODebugContext* dbg) override {
+//     cout << "Doing a read of size " << n << "!" << endl;
+//     return ROCKSDB_NAMESPACE::FSSequentialFileWrapper::Read(n, options,
+//     result,
+//                                                 scratch, dbg);
+//   }
+//   // All other methods are forwarded to target_ automatically.
+// };
+//
+// This is often more convenient than inheriting the class directly because
+// (a) Don't have to override and forward all methods - the Wrapper will
+//     forward everything you're not explicitly overriding.
+// (b) Don't need to update the wrapper when more methods are added to the
+//     rocksdb class. Unless you actually want to override the behavior.
+//     (And unless rocksdb people forgot to update the *Wrapper class.)
 
 // An implementation of Env that forwards all calls to another Env.
 // May be useful to clients who wish to override just part of the

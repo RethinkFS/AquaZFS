@@ -84,7 +84,7 @@ class Zone {
   uint64_t capacity_; /* remaining capacity */
   uint64_t max_capacity_;
   uint64_t wp_;
-  Env::WriteLifeTimeHint lifetime_;
+  WriteLifeTimeHint lifetime_;
   std::atomic<uint64_t> used_capacity_;
 
   IOStatus Reset();
@@ -202,7 +202,7 @@ class ZonedBlockDevice {
 
   Zone *GetIOZone(uint64_t offset);
 
-  IOStatus AllocateIOZone(Env::WriteLifeTimeHint file_lifetime, IOType io_type,
+  IOStatus AllocateIOZone(WriteLifeTimeHint file_lifetime, IOType io_type,
                           Zone **out_zone);
   IOStatus AllocateMetaZone(Zone **out_meta_zone);
 
@@ -240,7 +240,7 @@ class ZonedBlockDevice {
 
   IOStatus ReleaseMigrateZone(Zone *zone);
 
-  IOStatus TakeMigrateZone(Zone **out_zone, Env::WriteLifeTimeHint lifetime,
+  IOStatus TakeMigrateZone(Zone **out_zone, WriteLifeTimeHint lifetime,
                            uint32_t min_capacity);
 
   void AddBytesWritten(uint64_t written) { bytes_written_ += written; };
@@ -262,7 +262,7 @@ class ZonedBlockDevice {
   void WaitForOpenIOZoneToken(bool prioritized);
   IOStatus ApplyFinishThreshold();
   IOStatus FinishCheapestIOZone();
-  IOStatus GetBestOpenZoneMatch(Env::WriteLifeTimeHint file_lifetime,
+  IOStatus GetBestOpenZoneMatch(WriteLifeTimeHint file_lifetime,
                                 unsigned int *best_diff_out, Zone **zone_out,
                                 uint32_t min_capacity = 0);
   IOStatus AllocateEmptyZone(Zone **zone_out);

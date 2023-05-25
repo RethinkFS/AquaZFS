@@ -44,7 +44,7 @@ Zone::Zone(ZonedBlockDevice *zbd, ZonedBlockDeviceBackend *zbd_be,
       start_(zbd_be->ZoneStart(zones, idx)),
       max_capacity_(zbd_be->ZoneMaxCapacity(zones, idx)),
       wp_(zbd_be->ZoneWp(zones, idx)) {
-  lifetime_ = Env::WLTH_NOT_SET;
+  lifetime_ = WLTH_NOT_SET;
   used_capacity_ = 0;
   capacity_ = 0;
   if (zbd_be->ZoneIsWritable(zones, idx))
@@ -84,7 +84,7 @@ IOStatus Zone::Reset() {
     max_capacity_ = capacity_ = max_capacity;
 
   wp_ = start_;
-  lifetime_ = Env::WLTH_NOT_SET;
+  lifetime_ = WLTH_NOT_SET;
 
   return IOStatus::OK();
 }
@@ -114,7 +114,7 @@ IOStatus Zone::Close() {
 
 IOStatus Zone::Append(char *data, uint32_t size) {
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_ZONE_WRITE_LATENCY,
-                                  Env::Default());
+                                  Default());
   zbd_->GetMetrics()->ReportThroughput(AQUAFS_ZONE_WRITE_THROUGHPUT, size);
   char *ptr = data;
   uint32_t left = size;
@@ -437,12 +437,12 @@ ZonedBlockDevice::~ZonedBlockDevice() {
 #define LIFETIME_DIFF_NOT_GOOD (100)
 #define LIFETIME_DIFF_COULD_BE_WORSE (50)
 
-unsigned int GetLifeTimeDiff(Env::WriteLifeTimeHint zone_lifetime,
-                             Env::WriteLifeTimeHint file_lifetime) {
-  assert(file_lifetime <= Env::WLTH_EXTREME);
+unsigned int GetLifeTimeDiff(WriteLifeTimeHint zone_lifetime,
+                             WriteLifeTimeHint file_lifetime) {
+  assert(file_lifetime <= WLTH_EXTREME);
 
-  if ((file_lifetime == Env::WLTH_NOT_SET) ||
-      (file_lifetime == Env::WLTH_NONE)) {
+  if ((file_lifetime == WLTH_NOT_SET) ||
+      (file_lifetime == WLTH_NONE)) {
     if (file_lifetime == zone_lifetime) {
       return 0;
     } else {
@@ -460,7 +460,7 @@ IOStatus ZonedBlockDevice::AllocateMetaZone(Zone **out_meta_zone) {
   assert(out_meta_zone);
   *out_meta_zone = nullptr;
   AquaFSMetricsLatencyGuard guard(metrics_, AQUAFS_META_ALLOC_LATENCY,
-                                  Env::Default());
+                                  Default());
   metrics_->ReportQPS(AQUAFS_META_ALLOC_QPS, 1);
 
   for (const auto z : meta_zones) {
@@ -634,7 +634,7 @@ IOStatus ZonedBlockDevice::FinishCheapestIOZone() {
 }
 
 IOStatus ZonedBlockDevice::GetBestOpenZoneMatch(
-    Env::WriteLifeTimeHint file_lifetime, unsigned int *best_diff_out,
+    WriteLifeTimeHint file_lifetime, unsigned int *best_diff_out,
     Zone **zone_out, uint32_t min_capacity) {
   unsigned int best_diff = LIFETIME_DIFF_NOT_GOOD;
   Zone *allocated_zone = nullptr;
@@ -738,7 +738,7 @@ IOStatus ZonedBlockDevice::ReleaseMigrateZone(Zone *zone) {
 }
 
 IOStatus ZonedBlockDevice::TakeMigrateZone(Zone **out_zone,
-                                           Env::WriteLifeTimeHint file_lifetime,
+                                           WriteLifeTimeHint file_lifetime,
                                            uint32_t min_capacity) {
   std::unique_lock<std::mutex> lock(migrate_zone_mtx_);
   migrate_resource_.wait(lock, [this] { return !migrating_; });
@@ -757,7 +757,7 @@ IOStatus ZonedBlockDevice::TakeMigrateZone(Zone **out_zone,
   return s;
 }
 
-IOStatus ZonedBlockDevice::AllocateIOZone(Env::WriteLifeTimeHint file_lifetime,
+IOStatus ZonedBlockDevice::AllocateIOZone(WriteLifeTimeHint file_lifetime,
                                           IOType io_type, Zone **out_zone) {
   Zone *allocated_zone = nullptr;
   unsigned int best_diff = LIFETIME_DIFF_NOT_GOOD;
@@ -767,14 +767,14 @@ IOStatus ZonedBlockDevice::AllocateIOZone(Env::WriteLifeTimeHint file_lifetime,
   auto tag = AQUAFS_WAL_IO_ALLOC_LATENCY;
   if (io_type != IOType::kWAL) {
     // L0 flushes have lifetime MEDIUM
-    if (file_lifetime == Env::WLTH_MEDIUM) {
+    if (file_lifetime == WLTH_MEDIUM) {
       tag = AQUAFS_L0_IO_ALLOC_LATENCY;
     } else {
       tag = AQUAFS_NON_WAL_IO_ALLOC_LATENCY;
     }
   }
 
-  AquaFSMetricsLatencyGuard guard(metrics_, tag, Env::Default());
+  AquaFSMetricsLatencyGuard guard(metrics_, tag, Default());
   metrics_->ReportQPS(AQUAFS_IO_ALLOC_QPS, 1);
 
   // Check if a deferred IO error was set

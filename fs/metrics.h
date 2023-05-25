@@ -18,7 +18,7 @@
 //   2. Find target function, add these lines for tracing
 //       // Latency Trace
 //       AquaFSMetricsGuard guard(zoneFile_->GetZBDMetrics(),
-//       AQUAFS_WAL_WRITE_LATENCY, Env::Default());
+//       AQUAFS_WAL_WRITE_LATENCY, Default());
 //       // Throughput Trace
 //       zoneFile_->GetZBDMetrics()->ReportThroughput(AQUAFS_WRITE_THROUGHPUT,
 //       data.size());

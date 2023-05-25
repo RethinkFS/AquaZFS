@@ -61,7 +61,7 @@ class ZoneFile {
   uint64_t extent_start_ = NO_EXTENT;
   uint64_t extent_filepos_ = 0;
 
-  Env::WriteLifeTimeHint lifetime_;
+  WriteLifeTimeHint lifetime_;
   IOType io_type_; /* Only used when writing */
   uint64_t file_size_;
   uint64_t file_id_;
@@ -99,7 +99,7 @@ class ZoneFile {
   IOStatus Append(void* buffer, int data_size);
   IOStatus BufferedAppend(char* data, uint32_t size);
   IOStatus SparseAppend(char* data, uint32_t size);
-  IOStatus SetWriteLifeTimeHint(Env::WriteLifeTimeHint lifetime);
+  IOStatus SetWriteLifeTimeHint(WriteLifeTimeHint lifetime);
   void SetIOType(IOType io_type);
   std::string GetFilename();
   time_t GetFileModificationTime();
@@ -111,7 +111,7 @@ class ZoneFile {
   uint32_t GetBlockSize() { return zbd_->GetBlockSize(); }
   ZonedBlockDevice* GetZbd() { return zbd_; }
   std::vector<ZoneExtent*> GetExtents() { return extents_; }
-  Env::WriteLifeTimeHint GetWriteLifeTimeHint() { return lifetime_; }
+  WriteLifeTimeHint GetWriteLifeTimeHint() { return lifetime_; }
 
   IOStatus PositionedRead(uint64_t offset, size_t n, Slice* result,
                           char* scratch, bool direct);
@@ -231,8 +231,8 @@ class ZonedWritableFile : public FSWritableFile {
   size_t GetRequiredBufferAlignment() const override {
     return zoneFile_->GetBlockSize();
   }
-  void SetWriteLifeTimeHint(Env::WriteLifeTimeHint hint) override;
-  virtual Env::WriteLifeTimeHint GetWriteLifeTimeHint() override {
+  void SetWriteLifeTimeHint(WriteLifeTimeHint hint) override;
+  virtual WriteLifeTimeHint GetWriteLifeTimeHint() override {
     return zoneFile_->GetWriteLifeTimeHint();
   }
 

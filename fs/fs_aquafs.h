@@ -72,7 +72,7 @@ public:
   explicit Superblock(ZonedBlockDevice *zbd, std::string aux_fs_path = "",
                       uint32_t finish_threshold = 0, bool enable_gc = false,
                       bool enable_raid = false) {
-    std::string uuid = Env::Default()->GenerateUniqueId();
+    std::string uuid = Default()->GenerateUniqueId();
     int uuid_len =
         std::min(uuid.length(),
                  sizeof(uuid_) - 1); /* make sure uuid is nullterminated */
@@ -329,7 +329,7 @@ public:
 
   Status MkFS(std::string aux_fs_path, uint32_t finish_threshold,
               bool enable_gc);
-  // std::map<std::string, Env::WriteLifeTimeHint> GetWriteLifeTimeHints();
+  // std::map<std::string, WriteLifeTimeHint> GetWriteLifeTimeHints();
 
   const char *Name() const override {
     return "AquaFS - The Zoned-enabled File System";

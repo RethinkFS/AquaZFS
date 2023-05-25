@@ -302,13 +302,13 @@ int aquafs_tool_lsuuid() {
   return 0;
 }
 
-static std::map<std::string, Env::WriteLifeTimeHint> wlth_map;
+static std::map<std::string, WriteLifeTimeHint> wlth_map;
 
-Env::WriteLifeTimeHint GetWriteLifeTimeHint(const std::string &filename) {
+WriteLifeTimeHint GetWriteLifeTimeHint(const std::string &filename) {
   if (wlth_map.find(filename) != wlth_map.end()) {
     return wlth_map[filename];
   }
-  return Env::WriteLifeTimeHint::WLTH_NOT_SET;
+  return WriteLifeTimeHint::WLTH_NOT_SET;
 }
 
 int SaveWriteLifeTimeHints() {
@@ -339,7 +339,7 @@ void ReadWriteLifeTimeHints() {
   uint32_t lth;
 
   while (wlth_file >> filename >> lth) {
-    wlth_map.insert(std::make_pair(filename, (Env::WriteLifeTimeHint)lth));
+    wlth_map.insert(std::make_pair(filename, (WriteLifeTimeHint)lth));
   }
 
   wlth_file.close();

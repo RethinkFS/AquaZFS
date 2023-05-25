@@ -443,7 +443,7 @@ IOStatus AquaFS::RollMetaZoneLocked() {
   IOStatus s;
 
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_ROLL_LATENCY,
-                                  Env::Default());
+                                  Default());
   zbd_->GetMetrics()->ReportQPS(AQUAFS_ROLL_QPS, 1);
 
   IOStatus status = zbd_->AllocateMetaZone(&new_meta_zone);
@@ -551,7 +551,7 @@ IOStatus AquaFS::SyncFileMetadataNoLock(ZoneFile *zoneFile, bool replace) {
   std::string output;
   IOStatus s;
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_META_SYNC_LATENCY,
-                                  Env::Default());
+                                  Default());
 
   if (zoneFile->IsDeleted()) {
     Info(logger_, "File %s has been deleted, skip sync file metadata!",
@@ -1644,8 +1644,8 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
   return Status::OK();
 }
 
-// std::map<std::string, Env::WriteLifeTimeHint> AquaFS::GetWriteLifeTimeHints() {
-//   std::map<std::string, Env::WriteLifeTimeHint> hint_map;
+// std::map<std::string, WriteLifeTimeHint> AquaFS::GetWriteLifeTimeHints() {
+//   std::map<std::string, WriteLifeTimeHint> hint_map;
 //
 //   for (auto it = files_.begin(); it != files_.end(); it++) {
 //     std::shared_ptr<ZoneFile> zoneFile = it->second;
@@ -1690,7 +1690,7 @@ Status NewAquaFS(FileSystem **fs, const ZbdBackendType backend_type,
   // TODO(guokuankuan@bytedance.com) We need to figure out how to reuse
   // RocksDB's logger in the future.
 #if !defined(NDEBUG) || defined(WITH_TERARKDB)
-  // s = Env::Default()->NewLogger(GetLogFilename(backend_name), &logger);
+  // s = Default()->NewLogger(GetLogFilename(backend_name), &logger);
   logger = std::make_shared<AquaFSConsoleLogger>();
   if (!s.ok()) {
     fprintf(stderr, "AquaFS: Could not create logger");
