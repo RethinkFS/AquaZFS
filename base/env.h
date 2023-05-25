@@ -5,7 +5,12 @@
 #ifndef AQUAFS_ENV_H
 #define AQUAFS_ENV_H
 
-#include "file_system.h"
+#include <cassert>
+#include <cstdarg>
+#include <memory>
+#include <chrono>
+
+#include "status.h"
 
 #if defined(__GNUC__) || defined(__clang__)
 #define AQUAFS_PRINTF_FORMAT_ATTR(format_param, dots_param) \
@@ -74,6 +79,12 @@ public:
   bool use_direct_reads = false;
 
   std::string GenerateUniqueId() { return "todo"; }
+
+  uint64_t NowMicros() {
+    auto now = std::chrono::high_resolution_clock::now();
+    auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
+    return micros.count();
+  }
 };
 
 // A file abstraction for random reading and writing.

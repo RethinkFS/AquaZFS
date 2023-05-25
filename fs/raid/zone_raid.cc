@@ -59,14 +59,15 @@ class RaidConsoleLogger : public Logger {
   RaidConsoleLogger() : Logger(InfoLogLevel::DEBUG_LEVEL) {}
 
   void Logv(const char *format, va_list ap) override {
-    MutexLock _(&lock_);
+    lock_.lock();
     printf("[RAID] ");
     vprintf(format, ap);
     printf("\n");
     fflush(stdout);
+    lock_.unlock();
   }
 
-  port::Mutex lock_;
+  std::mutex lock_;
 };
 
 AbstractRaidZonedBlockDevice::AbstractRaidZonedBlockDevice(

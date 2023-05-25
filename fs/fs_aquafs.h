@@ -72,7 +72,7 @@ public:
   explicit Superblock(ZonedBlockDevice *zbd, std::string aux_fs_path = "",
                       uint32_t finish_threshold = 0, bool enable_gc = false,
                       bool enable_raid = false) {
-    std::string uuid = Default()->GenerateUniqueId();
+    std::string uuid = Env::Default()->GenerateUniqueId();
     int uuid_len =
         std::min(uuid.length(),
                  sizeof(uuid_) - 1); /* make sure uuid is nullterminated */

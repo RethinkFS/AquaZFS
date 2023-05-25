@@ -7,6 +7,7 @@
 
 #include <string>
 #include <cassert>
+#include <cstring>
 
 namespace aquafs {
 class Slice {

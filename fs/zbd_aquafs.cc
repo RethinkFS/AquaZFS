@@ -114,7 +114,7 @@ IOStatus Zone::Close() {
 
 IOStatus Zone::Append(char *data, uint32_t size) {
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_ZONE_WRITE_LATENCY,
-                                  Default());
+                                  Env::Default());
   zbd_->GetMetrics()->ReportThroughput(AQUAFS_ZONE_WRITE_THROUGHPUT, size);
   char *ptr = data;
   uint32_t left = size;
@@ -460,7 +460,7 @@ IOStatus ZonedBlockDevice::AllocateMetaZone(Zone **out_meta_zone) {
   assert(out_meta_zone);
   *out_meta_zone = nullptr;
   AquaFSMetricsLatencyGuard guard(metrics_, AQUAFS_META_ALLOC_LATENCY,
-                                  Default());
+                                  Env::Default());
   metrics_->ReportQPS(AQUAFS_META_ALLOC_QPS, 1);
 
   for (const auto z : meta_zones) {
@@ -774,7 +774,7 @@ IOStatus ZonedBlockDevice::AllocateIOZone(WriteLifeTimeHint file_lifetime,
     }
   }
 
-  AquaFSMetricsLatencyGuard guard(metrics_, tag, Default());
+  AquaFSMetricsLatencyGuard guard(metrics_, tag, Env::Default());
   metrics_->ReportQPS(AQUAFS_IO_ALLOC_QPS, 1);
 
   // Check if a deferred IO error was set

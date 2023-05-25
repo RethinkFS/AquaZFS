@@ -6,6 +6,7 @@
 #define AQUAFS_STATUS_H
 
 #include <string>
+#include <memory>
 #include "slice.h"
 
 namespace aquafs {

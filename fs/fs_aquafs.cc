@@ -443,7 +443,7 @@ IOStatus AquaFS::RollMetaZoneLocked() {
   IOStatus s;
 
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_ROLL_LATENCY,
-                                  Default());
+                                  Env::Default());
   zbd_->GetMetrics()->ReportQPS(AQUAFS_ROLL_QPS, 1);
 
   IOStatus status = zbd_->AllocateMetaZone(&new_meta_zone);
@@ -551,7 +551,7 @@ IOStatus AquaFS::SyncFileMetadataNoLock(ZoneFile *zoneFile, bool replace) {
   std::string output;
   IOStatus s;
   AquaFSMetricsLatencyGuard guard(zbd_->GetMetrics(), AQUAFS_META_SYNC_LATENCY,
-                                  Default());
+                                  Env::Default());
 
   if (zoneFile->IsDeleted()) {
     Info(logger_, "File %s has been deleted, skip sync file metadata!",

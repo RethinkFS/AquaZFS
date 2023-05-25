@@ -9,7 +9,7 @@
 #include <utility>
 
 #include "base/io_status.h"
-#include "util/coding.h"
+#include "base/coding.h"
 
 namespace aquafs {
 
@@ -464,13 +464,15 @@ void RaidAutoZonedBlockDevice::flush_zone_info() {
     p[idx].len = p[idx].capacity;
   }
 }
+
 void RaidAutoZonedBlockDevice::layout_update(
     RaidAutoZonedBlockDevice::device_zone_map_t &&device_zone,
     RaidAutoZonedBlockDevice::mode_map_t &&mode_map) {
-  for (auto &&p : device_zone) device_zone_map_.insert(p);
-  for (auto &&p : mode_map) mode_map_.insert(p);
+  for (auto &&p: device_zone) device_zone_map_.insert(p);
+  for (auto &&p: mode_map) mode_map_.insert(p);
   flush_zone_info();
 }
+
 void RaidAutoZonedBlockDevice::layout_setup(
     RaidAutoZonedBlockDevice::device_zone_map_t &&device_zone,
     RaidAutoZonedBlockDevice::mode_map_t &&mode_map) {
@@ -478,11 +480,13 @@ void RaidAutoZonedBlockDevice::layout_setup(
   mode_map_ = std::move(mode_map);
   flush_zone_info();
 }
-template <class T>
+
+template<class T>
 RaidMapItem RaidAutoZonedBlockDevice::getAutoDeviceZoneFromIdx(T idx) {
   return device_zone_map_[idx * nr_dev()];
 }
-template <class T>
+
+template<class T>
 T RaidAutoZonedBlockDevice::getAutoMappedDevicePos(T pos) {
   auto raid_zone_idx = pos / zone_sz_;
   RaidMapItem map_item = getAutoDeviceZone(pos);
@@ -505,11 +509,13 @@ T RaidAutoZonedBlockDevice::getAutoMappedDevicePos(T pos) {
            pos % block_sz_;
   }
 }
-template <class T>
+
+template<class T>
 RaidMapItem RaidAutoZonedBlockDevice::getAutoDeviceZone(T pos) {
   return device_zone_map_[getAutoDeviceZoneIdx(pos)];
 }
-template <class T>
+
+template<class T>
 idx_t RaidAutoZonedBlockDevice::getAutoDeviceZoneIdx(T pos) {
   auto raid_zone_idx = pos / zone_sz_;
   auto raid_zone_inner_idx =
@@ -531,12 +537,14 @@ idx_t RaidAutoZonedBlockDevice::getAutoDeviceZoneIdx(T pos) {
        static_cast<uint32_t>(pos));
   return {};
 }
+
 Status RaidMapItem::DecodeFrom(Slice *input) {
   GetFixed32(input, &device_idx);
   GetFixed32(input, &zone_idx);
   GetFixed16(input, &invalid);
   return Status::OK();
 }
+
 Status RaidModeItem::DecodeFrom(Slice *input) {
   GetFixed32(input, reinterpret_cast<uint32_t *>(&mode));
   GetFixed32(input, &option);

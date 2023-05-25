@@ -7,12 +7,16 @@
 
 #include <unordered_map>
 #include <map>
+#include <chrono>
+#include <sstream>
 #include <functional>
 #include "status.h"
 #include "io_status.h"
 #include "env.h"
 
 namespace aquafs {
+
+class Env;
 
 // These values match Linux definition
 // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/fcntl.h#n56
