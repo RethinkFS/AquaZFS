@@ -21,6 +21,9 @@
 #endif
 
 namespace aquafs {
+
+extern std::string errnoStr(int err);
+
 enum InfoLogLevel : unsigned char {
   DEBUG_LEVEL = 0,
   INFO_LEVEL,
@@ -48,8 +51,31 @@ public:
     assert(false);
   }
 
+  // Write an entry to the log file with the specified log level
+  // and format.  Any log with level under the internal log level
+  // of *this (see @SetInfoLogLevel and @GetInfoLogLevel) will not be
+  // printed.
+  virtual void Logv(const InfoLogLevel log_level, const char *format,
+                    va_list ap);
+
+  // Write a header to the log file with the specified format
+  // It is recommended that you log all header information at the start of the
+  // application. But it is not enforced.
+  virtual void LogHeader(const char *format, va_list ap) {
+    // Default implementation does a simple INFO level log write.
+    // Please override as per the logger class requirement.
+    Logv(InfoLogLevel::INFO_LEVEL, format, ap);
+  }
+
+  // Flush to the OS buffers
+  virtual void Flush() {}
+
   void SetInfoLogLevel(InfoLogLevel logLevel) {
     log_level_ = logLevel;
+  }
+
+  InfoLogLevel GetInfoLogLevel() const {
+    return log_level_;
   }
 };
 
@@ -127,13 +153,20 @@ public:
   // WAL writes
   bool fallocate_with_keep_size = true;
 
-  std::string GenerateUniqueId() { return "todo"; }
+  std::string GenerateUniqueId();
 
   uint64_t NowMicros() {
     auto now = std::chrono::high_resolution_clock::now();
     auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
     return micros.count();
   }
+
+  // Returns the number of nano-seconds since some fixed point in time. Only
+  // useful for computing deltas of time in one run.
+  // Default implementation simply relies on NowMicros.
+  // In platform-specific implementations, NowNanos() should return time points
+  // that are MONOTONIC.
+  uint64_t NowNanos() { return NowMicros() * 1000; }
 
   uint64_t GetThreadID() const {
     uint64_t thread_id = 0;
@@ -150,19 +183,35 @@ public:
 #endif  // defined(_GNU_SOURCE) && defined(__GLIBC_PREREQ)
     return thread_id;
   }
+
+  // Get the current host name as a null terminated string iff the string
+  // length is < len. The hostname should otherwise be truncated to len.
+  Status GetHostName(char *name, uint64_t len);
+
+  // Get the current hostname from the given env as a std::string in result.
+  // The result may be truncated if the hostname is too
+  // long
+  Status GetHostNameString(std::string *result);
+
+  // Get the number of seconds since the Epoch, 1970-01-01 00:00:00 (UTC).
+  // Only overwrites *unix_time on success.
+  Status GetCurrentTime(int64_t *unix_time);
+
+private:
+  static const size_t kMaxHostNameLen = 256;
 };
 
 // A file abstraction for random reading and writing.
 class RandomRWFile {
 public:
-  RandomRWFile() {}
+  RandomRWFile() = default;
 
   // No copying allowed
   RandomRWFile(const RandomRWFile &) = delete;
 
   RandomRWFile &operator=(const RandomRWFile &) = delete;
 
-  virtual ~RandomRWFile() {}
+  virtual ~RandomRWFile() = default;
 
   // Indicates if the class makes use of direct I/O
   // If false you must pass aligned buffer to Write()

@@ -9,7 +9,7 @@
 
 #include "io_posix.h"
 
-#include <errno.h>
+#include <cerrno>
 #include <fcntl.h>
 
 #include <algorithm>
@@ -23,9 +23,9 @@
 #endif
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -40,10 +40,8 @@
 
 #include "monitoring/iostats_context_imp.h"
 #include "port.h"
-// #include "port/stack_trace.h"
 #include "slice.h"
 #include "util/monitoring/sync_point.h"
-// #include "util/autovector.h"
 #include "base/coding.h"
 #include "util/string_util.h"
 

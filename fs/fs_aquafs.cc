@@ -629,85 +629,85 @@ IOStatus AquaFS::DeleteFileNoLock(std::string fname, const IOOptions &options,
   return s;
 }
 
-// IOStatus AquaFS::NewSequentialFile(const std::string &filename,
-//                                    const FileOptions &file_opts,
-//                                    std::unique_ptr<FSSequentialFile> *result,
-//                                    IODebugContext *dbg) {
-//   std::string fname = FormatPathLexically(filename);
-//   std::shared_ptr<ZoneFile> zoneFile = GetFile(fname);
-//
-//   Debug(logger_, "New sequential file: %s direct: %d\n", fname.c_str(),
-//         file_opts.use_direct_reads);
-//
-//   if (zoneFile == nullptr) {
-//     return target()->NewSequentialFile(ToAuxPath(fname), file_opts, result,
-//                                        dbg);
-//   }
-//
-//   result->reset(new ZonedSequentialFile(zoneFile, file_opts));
-//   return IOStatus::OK();
-// }
-//
-// IOStatus AquaFS::NewRandomAccessFile(
-//     const std::string &filename, const FileOptions &file_opts,
-//     std::unique_ptr<FSRandomAccessFile> *result, IODebugContext *dbg) {
-//   std::string fname = FormatPathLexically(filename);
-//   std::shared_ptr<ZoneFile> zoneFile = GetFile(fname);
-//
-//   Debug(logger_, "New random access file: %s direct: %d\n", fname.c_str(),
-//         file_opts.use_direct_reads);
-//
-//   if (zoneFile == nullptr) {
-//     return target()->NewRandomAccessFile(ToAuxPath(fname), file_opts, result,
-//                                          dbg);
-//   }
-//
-//   result->reset(new ZonedRandomAccessFile(files_[fname], file_opts));
-//   return IOStatus::OK();
-// }
-//
+IOStatus AquaFS::NewSequentialFile(const std::string &filename,
+                                   const FileOptions &file_opts,
+                                   std::unique_ptr<FSSequentialFile> *result,
+                                   IODebugContext *dbg) {
+  std::string fname = FormatPathLexically(filename);
+  std::shared_ptr<ZoneFile> zoneFile = GetFile(fname);
+
+  Debug(logger_, "New sequential file: %s direct: %d\n", fname.c_str(),
+        file_opts.use_direct_reads);
+
+  if (zoneFile == nullptr) {
+    return target()->NewSequentialFile(ToAuxPath(fname), file_opts, result,
+                                       dbg);
+  }
+
+  result->reset(new ZonedSequentialFile(zoneFile, file_opts));
+  return IOStatus::OK();
+}
+
+IOStatus AquaFS::NewRandomAccessFile(
+    const std::string &filename, const FileOptions &file_opts,
+    std::unique_ptr<FSRandomAccessFile> *result, IODebugContext *dbg) {
+  std::string fname = FormatPathLexically(filename);
+  std::shared_ptr<ZoneFile> zoneFile = GetFile(fname);
+
+  Debug(logger_, "New random access file: %s direct: %d\n", fname.c_str(),
+        file_opts.use_direct_reads);
+
+  if (zoneFile == nullptr) {
+    return target()->NewRandomAccessFile(ToAuxPath(fname), file_opts, result,
+                                         dbg);
+  }
+
+  result->reset(new ZonedRandomAccessFile(files_[fname], file_opts));
+  return IOStatus::OK();
+}
+
 inline bool ends_with(std::string const &value, std::string const &ending) {
   if (ending.size() > value.size()) return false;
   return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
-//
-// IOStatus AquaFS::NewWritableFile(const std::string &filename,
-//                                  const FileOptions &file_opts,
-//                                  std::unique_ptr<FSWritableFile> *result,
-//                                  IODebugContext * /*dbg*/) {
-//   std::string fname = FormatPathLexically(filename);
-//   Debug(logger_, "New writable file: %s direct: %d\n", fname.c_str(),
-//         file_opts.use_direct_writes);
-//
-//   return OpenWritableFile(fname, file_opts, result, nullptr, false);
-// }
-//
-// IOStatus AquaFS::ReuseWritableFile(const std::string &filename,
-//                                    const std::string &old_filename,
-//                                    const FileOptions &file_opts,
-//                                    std::unique_ptr<FSWritableFile> *result,
-//                                    IODebugContext *dbg) {
-//   IOStatus s;
-//   std::string fname = FormatPathLexically(filename);
-//   std::string old_fname = FormatPathLexically(old_filename);
-//   Debug(logger_, "Reuse writable file: %s old name: %s\n", fname.c_str(),
-//         old_fname.c_str());
-//
-//   if (GetFile(old_fname) == nullptr)
-//     return IOStatus::NotFound("Old file does not exist");
-//
-//   /*
-//    * Delete the old file as it cannot be written from start of file
-//    * and create a new file with fname
-//    */
-//   s = DeleteFile(old_fname, file_opts.io_options, dbg);
-//   if (!s.ok()) {
-//     Error(logger_, "Failed to delete file %s\n", old_fname.c_str());
-//     return s;
-//   }
-//
-//   return OpenWritableFile(fname, file_opts, result, dbg, false);
-// }
+
+IOStatus AquaFS::NewWritableFile(const std::string &filename,
+                                 const FileOptions &file_opts,
+                                 std::unique_ptr<FSWritableFile> *result,
+                                 IODebugContext * /*dbg*/) {
+  std::string fname = FormatPathLexically(filename);
+  Debug(logger_, "New writable file: %s direct: %d\n", fname.c_str(),
+        file_opts.use_direct_writes);
+
+  return OpenWritableFile(fname, file_opts, result, nullptr, false);
+}
+
+IOStatus AquaFS::ReuseWritableFile(const std::string &filename,
+                                   const std::string &old_filename,
+                                   const FileOptions &file_opts,
+                                   std::unique_ptr<FSWritableFile> *result,
+                                   IODebugContext *dbg) {
+  IOStatus s;
+  std::string fname = FormatPathLexically(filename);
+  std::string old_fname = FormatPathLexically(old_filename);
+  Debug(logger_, "Reuse writable file: %s old name: %s\n", fname.c_str(),
+        old_fname.c_str());
+
+  if (GetFile(old_fname) == nullptr)
+    return IOStatus::NotFound("Old file does not exist");
+
+  /*
+   * Delete the old file as it cannot be written from start of file
+   * and create a new file with fname
+   */
+  s = DeleteFile(old_fname, file_opts.io_options, dbg);
+  if (!s.ok()) {
+    Error(logger_, "Failed to delete file %s\n", old_fname.c_str());
+    return s;
+  }
+
+  return OpenWritableFile(fname, file_opts, result, dbg, false);
+}
 
 IOStatus AquaFS::FileExists(const std::string &filename,
                             const IOOptions &options, IODebugContext *dbg) {
@@ -724,15 +724,15 @@ IOStatus AquaFS::FileExists(const std::string &filename,
 /* If the file does not exist, create a new one,
  * else return the existing file
  */
-// IOStatus AquaFS::ReopenWritableFile(const std::string &filename,
-//                                     const FileOptions &file_opts,
-//                                     std::unique_ptr<FSWritableFile> *result,
-//                                     IODebugContext *dbg) {
-//   std::string fname = FormatPathLexically(filename);
-//   Debug(logger_, "Reopen writable file: %s \n", fname.c_str());
-//
-//   return OpenWritableFile(fname, file_opts, result, dbg, true);
-// }
+IOStatus AquaFS::ReopenWritableFile(const std::string &filename,
+                                    const FileOptions &file_opts,
+                                    std::unique_ptr<FSWritableFile> *result,
+                                    IODebugContext *dbg) {
+  std::string fname = FormatPathLexically(filename);
+  Debug(logger_, "Reopen writable file: %s \n", fname.c_str());
+
+  return OpenWritableFile(fname, file_opts, result, dbg, true);
+}
 
 /* Must hold files_mtx_ */
 void AquaFS::GetAquaFSChildrenNoLock(const std::string &dir,
