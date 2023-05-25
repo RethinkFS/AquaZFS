@@ -860,61 +860,61 @@ IOStatus AquaFS::DeleteDirRecursive(const std::string &d,
   return s;
 }
 
-// IOStatus AquaFS::OpenWritableFile(const std::string &filename,
-//                                   const FileOptions &file_opts,
-//                                   std::unique_ptr<FSWritableFile> *result,
-//                                   IODebugContext *dbg, bool reopen) {
-//   IOStatus s;
-//   std::string fname = FormatPathLexically(filename);
-//   bool resetIOZones = false;
-//   {
-//     std::lock_guard<std::mutex> file_lock(files_mtx_);
-//     std::shared_ptr<ZoneFile> zoneFile = GetFileNoLock(fname);
-//
-//     /* if reopen is true and the file exists, return it */
-//     if (reopen && zoneFile != nullptr) {
-//       zoneFile->AcquireWRLock();
-//       result->reset(
-//           new ZonedWritableFile(zbd_, !file_opts.use_direct_writes, zoneFile));
-//       return IOStatus::OK();
-//     }
-//
-//     if (zoneFile != nullptr) {
-//       s = DeleteFileNoLock(fname, file_opts.io_options, dbg);
-//       if (!s.ok()) return s;
-//       resetIOZones = true;
-//     }
-//
-//     zoneFile =
-//         std::make_shared<ZoneFile>(zbd_, next_file_id_++, &metadata_writer_);
-//     zoneFile->SetFileModificationTime(time(0));
-//     zoneFile->AddLinkName(fname);
-//
-//     /* RocksDB does not set the right io type(!)*/
-//     if (ends_with(fname, ".log")) {
-//       zoneFile->SetIOType(IOType::kWAL);
-//       zoneFile->SetSparse(!file_opts.use_direct_writes);
-//     } else {
-//       zoneFile->SetIOType(IOType::kUnknown);
-//     }
-//
-//     /* Persist the creation of the file */
-//     s = SyncFileMetadataNoLock(zoneFile);
-//     if (!s.ok()) {
-//       zoneFile.reset();
-//       return s;
-//     }
-//
-//     zoneFile->AcquireWRLock();
-//     files_.insert(std::make_pair(fname.c_str(), zoneFile));
-//     result->reset(
-//         new ZonedWritableFile(zbd_, !file_opts.use_direct_writes, zoneFile));
-//   }
-//
-//   if (resetIOZones) s = zbd_->ResetUnusedIOZones();
-//
-//   return s;
-// }
+IOStatus AquaFS::OpenWritableFile(const std::string &filename,
+                                  const FileOptions &file_opts,
+                                  std::unique_ptr<FSWritableFile> *result,
+                                  IODebugContext *dbg, bool reopen) {
+  IOStatus s;
+  std::string fname = FormatPathLexically(filename);
+  bool resetIOZones = false;
+  {
+    std::lock_guard<std::mutex> file_lock(files_mtx_);
+    std::shared_ptr<ZoneFile> zoneFile = GetFileNoLock(fname);
+
+    /* if reopen is true and the file exists, return it */
+    if (reopen && zoneFile != nullptr) {
+      zoneFile->AcquireWRLock();
+      result->reset(
+          new ZonedWritableFile(zbd_, !file_opts.use_direct_writes, zoneFile));
+      return IOStatus::OK();
+    }
+
+    if (zoneFile != nullptr) {
+      s = DeleteFileNoLock(fname, file_opts.io_options, dbg);
+      if (!s.ok()) return s;
+      resetIOZones = true;
+    }
+
+    zoneFile =
+        std::make_shared<ZoneFile>(zbd_, next_file_id_++, &metadata_writer_);
+    zoneFile->SetFileModificationTime(time(0));
+    zoneFile->AddLinkName(fname);
+
+    /* RocksDB does not set the right io type(!)*/
+    if (ends_with(fname, ".log")) {
+      zoneFile->SetIOType(IOType::kWAL);
+      zoneFile->SetSparse(!file_opts.use_direct_writes);
+    } else {
+      zoneFile->SetIOType(IOType::kUnknown);
+    }
+
+    /* Persist the creation of the file */
+    s = SyncFileMetadataNoLock(zoneFile);
+    if (!s.ok()) {
+      zoneFile.reset();
+      return s;
+    }
+
+    zoneFile->AcquireWRLock();
+    files_.insert(std::make_pair(fname.c_str(), zoneFile));
+    result->reset(
+        new ZonedWritableFile(zbd_, !file_opts.use_direct_writes, zoneFile));
+  }
+
+  if (resetIOZones) s = zbd_->ResetUnusedIOZones();
+
+  return s;
+}
 
 IOStatus AquaFS::DeleteFile(const std::string &fname, const IOOptions &options,
                             IODebugContext *dbg) {
@@ -1644,17 +1644,17 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
   return Status::OK();
 }
 
-// std::map<std::string, WriteLifeTimeHint> AquaFS::GetWriteLifeTimeHints() {
-//   std::map<std::string, WriteLifeTimeHint> hint_map;
-//
-//   for (auto it = files_.begin(); it != files_.end(); it++) {
-//     std::shared_ptr<ZoneFile> zoneFile = it->second;
-//     std::string filename = it->first;
-//     hint_map.insert(std::make_pair(filename, zoneFile->GetWriteLifeTimeHint()));
-//   }
-//
-//   return hint_map;
-// }
+std::map<std::string, WriteLifeTimeHint> AquaFS::GetWriteLifeTimeHints() {
+  std::map<std::string, WriteLifeTimeHint> hint_map;
+
+  for (auto it = files_.begin(); it != files_.end(); it++) {
+    std::shared_ptr<ZoneFile> zoneFile = it->second;
+    std::string filename = it->first;
+    hint_map.insert(std::make_pair(filename, zoneFile->GetWriteLifeTimeHint()));
+  }
+
+  return hint_map;
+}
 
 #if !defined(NDEBUG) || defined(WITH_TERARKDB)
 

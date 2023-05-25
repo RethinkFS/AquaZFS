@@ -16,7 +16,28 @@
 
 namespace aquafs {
 
-class Env;
+class FileLock;
+
+class FSDirectory;
+
+class FSRandomAccessFile;
+
+class FSRandomRWFile;
+
+class FSSequentialFile;
+
+class FSWritableFile;
+
+class Logger;
+
+class Slice;
+
+struct ImmutableDBOptions;
+struct MutableDBOptions;
+
+class RateLimiter;
+
+struct ConfigOptions;
 
 // These values match Linux definition
 // https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/uapi/linux/fcntl.h#n56
@@ -298,8 +319,9 @@ public:
   // @param result On success, returns the loaded FileSystem
   // @return OK if the FileSystem was successfully loaded.
   // @return not-OK if the load failed.
-  static Status CreateFromString(const std::string &value,
-                                 std::shared_ptr<FileSystem> *result);
+  static Status CreateFromString(/*const ConfigOptions &config_options, */
+      const std::string &value,
+      std::shared_ptr<FileSystem> *result);
 
   // Return a default FileSystem suitable for the current operating
   // system.
@@ -343,10 +365,10 @@ public:
   // not exist, returns a non-OK status.
   //
   // The returned file will only be accessed by one thread at a time.
-  // virtual IOStatus NewSequentialFile(const std::string &fname,
-  //                                    const FileOptions &file_opts,
-  //                                    std::unique_ptr<FSSequentialFile> *result,
-  //                                    IODebugContext *dbg) = 0;
+  virtual IOStatus NewSequentialFile(const std::string &fname,
+                                     const FileOptions &file_opts,
+                                     std::unique_ptr<FSSequentialFile> *result,
+                                     IODebugContext *dbg) = 0;
 
   // Create a brand new random access read-only file with the
   // specified name.  On success, stores a pointer to the new file in
@@ -355,9 +377,9 @@ public:
   // status.
   //
   // The returned file may be concurrently accessed by multiple threads.
-  // virtual IOStatus NewRandomAccessFile(
-  //     const std::string &fname, const FileOptions &file_opts,
-  //     std::unique_ptr<FSRandomAccessFile> *result, IODebugContext *dbg) = 0;
+  virtual IOStatus NewRandomAccessFile(
+      const std::string &fname, const FileOptions &file_opts,
+      std::unique_ptr<FSRandomAccessFile> *result, IODebugContext *dbg) = 0;
 
   // Create an object that writes to a new file with the specified
   // name.  Deletes any existing file with the same name and creates a
@@ -366,10 +388,10 @@ public:
   // returns non-OK.
   //
   // The returned file will only be accessed by one thread at a time.
-  // virtual IOStatus NewWritableFile(const std::string &fname,
-  //                                  const FileOptions &file_opts,
-  //                                  std::unique_ptr<FSWritableFile> *result,
-  //                                  IODebugContext *dbg) = 0;
+  virtual IOStatus NewWritableFile(const std::string &fname,
+                                   const FileOptions &file_opts,
+                                   std::unique_ptr<FSWritableFile> *result,
+                                   IODebugContext *dbg) = 0;
 
   // Create an object that writes to a file with the specified name.
   // `FSWritableFile::Append()`s will append after any existing content.  If the
@@ -379,41 +401,41 @@ public:
   // failure stores nullptr in *result and returns non-OK.
   //
   // The returned file will only be accessed by one thread at a time.
-  // virtual IOStatus ReopenWritableFile(
-  //     const std::string & /*fname*/, const FileOptions & /*options*/,
-  //     std::unique_ptr<FSWritableFile> * /*result*/, IODebugContext * /*dbg*/) {
-  //   return IOStatus::NotSupported("ReopenWritableFile");
-  // }
+  virtual IOStatus ReopenWritableFile(
+      const std::string & /*fname*/, const FileOptions & /*options*/,
+      std::unique_ptr<FSWritableFile> * /*result*/, IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported("ReopenWritableFile");
+  }
 
   // Reuse an existing file by renaming it and opening it as writable.
-  // virtual IOStatus ReuseWritableFile(const std::string &fname,
-  //                                    const std::string &old_fname,
-  //                                    const FileOptions &file_opts,
-  //                                    std::unique_ptr<FSWritableFile> *result,
-  //                                    IODebugContext *dbg);
+  virtual IOStatus ReuseWritableFile(const std::string &fname,
+                                     const std::string &old_fname,
+                                     const FileOptions &file_opts,
+                                     std::unique_ptr<FSWritableFile> *result,
+                                     IODebugContext *dbg);
 
   // Open `fname` for random read and write, if file doesn't exist the file
   // will be created.  On success, stores a pointer to the new file in
   // *result and returns OK.  On failure returns non-OK.
   //
   // The returned file will only be accessed by one thread at a time.
-  // virtual IOStatus NewRandomRWFile(const std::string & /*fname*/,
-  //                                  const FileOptions & /*options*/,
-  //                                  std::unique_ptr<FSRandomRWFile> * /*result*/,
-  //                                  IODebugContext * /*dbg*/) {
-  //   return IOStatus::NotSupported(
-  //       "RandomRWFile is not implemented in this FileSystem");
-  // }
+  virtual IOStatus NewRandomRWFile(const std::string & /*fname*/,
+                                   const FileOptions & /*options*/,
+                                   std::unique_ptr<FSRandomRWFile> * /*result*/,
+                                   IODebugContext * /*dbg*/) {
+    return IOStatus::NotSupported(
+        "RandomRWFile is not implemented in this FileSystem");
+  }
 
   // Opens `fname` as a memory-mapped file for read and write (in-place updates
   // only, i.e., no appends). On success, stores a raw buffer covering the whole
   // file in `*result`. The file must exist prior to this call.
-  // virtual IOStatus NewMemoryMappedFileBuffer(
-  //     const std::string & /*fname*/,
-  //     std::unique_ptr<MemoryMappedFileBuffer> * /*result*/) {
-  //   return IOStatus::NotSupported(
-  //       "MemoryMappedFileBuffer is not implemented in this FileSystem");
-  // }
+  virtual IOStatus NewMemoryMappedFileBuffer(
+      const std::string & /*fname*/,
+      std::unique_ptr<MemoryMappedFileBuffer> * /*result*/) {
+    return IOStatus::NotSupported(
+        "MemoryMappedFileBuffer is not implemented in this FileSystem");
+  }
 
   // Create an object that represents a directory. Will fail if directory
   // doesn't exist. If the directory exists, it will open the directory
@@ -422,10 +444,10 @@ public:
   // On success, stores a pointer to the new Directory in
   // *result and returns OK. On failure stores nullptr in *result and
   // returns non-OK.
-  // virtual IOStatus NewDirectory(const std::string &name,
-  //                               const IOOptions &io_opts,
-  //                               std::unique_ptr<FSDirectory> *result,
-  //                               IODebugContext *dbg) = 0;
+  virtual IOStatus NewDirectory(const std::string &name,
+                                const IOOptions &io_opts,
+                                std::unique_ptr<FSDirectory> *result,
+                                IODebugContext *dbg) = 0;
 
   // Returns OK if the named file exists.
   //         NotFound if the named file does not exist,
@@ -959,12 +981,12 @@ public:
         write_hint_(WLTH_NOT_SET),
         strict_bytes_per_sync_(false) {}
 
-  // explicit FSWritableFile(const FileOptions& options)
-  //     : last_preallocated_block_(0),
-  //       preallocation_block_size_(0),
-  //       io_priority_(IO_TOTAL),
-  //       write_hint_(WLTH_NOT_SET),
-  //       strict_bytes_per_sync_(options.strict_bytes_per_sync) {}
+  explicit FSWritableFile(const FileOptions &options)
+      : last_preallocated_block_(0),
+        preallocation_block_size_(0),
+        io_priority_(IO_TOTAL),
+        write_hint_(WLTH_NOT_SET),
+        strict_bytes_per_sync_(options.strict_bytes_per_sync) {}
 
   virtual ~FSWritableFile() {}
 
@@ -1351,51 +1373,59 @@ public:
   FileSystem *target() const { return target_.get(); }
 
   // The following text is boilerplate that forwards all methods to target()
-  // IOStatus NewSequentialFile(const std::string& f, const FileOptions& file_opts,
-  //                            std::unique_ptr<FSSequentialFile>* r,
-  //                            IODebugContext* dbg) override {
-  //   return target_->NewSequentialFile(f, file_opts, r, dbg);
-  // }
-  // IOStatus NewRandomAccessFile(const std::string& f,
-  //                              const FileOptions& file_opts,
-  //                              std::unique_ptr<FSRandomAccessFile>* r,
-  //                              IODebugContext* dbg) override {
-  //   return target_->NewRandomAccessFile(f, file_opts, r, dbg);
-  // }
-  // IOStatus NewWritableFile(const std::string& f, const FileOptions& file_opts,
-  //                          std::unique_ptr<FSWritableFile>* r,
-  //                          IODebugContext* dbg) override {
-  //   return target_->NewWritableFile(f, file_opts, r, dbg);
-  // }
-  // IOStatus ReopenWritableFile(const std::string& fname,
-  //                             const FileOptions& file_opts,
-  //                             std::unique_ptr<FSWritableFile>* result,
-  //                             IODebugContext* dbg) override {
-  //   return target_->ReopenWritableFile(fname, file_opts, result, dbg);
-  // }
-  // IOStatus ReuseWritableFile(const std::string& fname,
-  //                            const std::string& old_fname,
-  //                            const FileOptions& file_opts,
-  //                            std::unique_ptr<FSWritableFile>* r,
-  //                            IODebugContext* dbg) override {
-  //   return target_->ReuseWritableFile(fname, old_fname, file_opts, r, dbg);
-  // }
-  // IOStatus NewRandomRWFile(const std::string& fname,
-  //                          const FileOptions& file_opts,
-  //                          std::unique_ptr<FSRandomRWFile>* result,
-  //                          IODebugContext* dbg) override {
-  //   return target_->NewRandomRWFile(fname, file_opts, result, dbg);
-  // }
-  // IOStatus NewMemoryMappedFileBuffer(
-  //     const std::string& fname,
-  //     std::unique_ptr<MemoryMappedFileBuffer>* result) override {
-  //   return target_->NewMemoryMappedFileBuffer(fname, result);
-  // }
-  // IOStatus NewDirectory(const std::string& name, const IOOptions& io_opts,
-  //                       std::unique_ptr<FSDirectory>* result,
-  //                       IODebugContext* dbg) override {
-  //   return target_->NewDirectory(name, io_opts, result, dbg);
-  // }
+  IOStatus NewSequentialFile(const std::string &f, const FileOptions &file_opts,
+                             std::unique_ptr<FSSequentialFile> *r,
+                             IODebugContext *dbg) override {
+    return target_->NewSequentialFile(f, file_opts, r, dbg);
+  }
+
+  IOStatus NewRandomAccessFile(const std::string &f,
+                               const FileOptions &file_opts,
+                               std::unique_ptr<FSRandomAccessFile> *r,
+                               IODebugContext *dbg) override {
+    return target_->NewRandomAccessFile(f, file_opts, r, dbg);
+  }
+
+  IOStatus NewWritableFile(const std::string &f, const FileOptions &file_opts,
+                           std::unique_ptr<FSWritableFile> *r,
+                           IODebugContext *dbg) override {
+    return target_->NewWritableFile(f, file_opts, r, dbg);
+  }
+
+  IOStatus ReopenWritableFile(const std::string &fname,
+                              const FileOptions &file_opts,
+                              std::unique_ptr<FSWritableFile> *result,
+                              IODebugContext *dbg) override {
+    return target_->ReopenWritableFile(fname, file_opts, result, dbg);
+  }
+
+  IOStatus ReuseWritableFile(const std::string &fname,
+                             const std::string &old_fname,
+                             const FileOptions &file_opts,
+                             std::unique_ptr<FSWritableFile> *r,
+                             IODebugContext *dbg) override {
+    return target_->ReuseWritableFile(fname, old_fname, file_opts, r, dbg);
+  }
+
+  IOStatus NewRandomRWFile(const std::string &fname,
+                           const FileOptions &file_opts,
+                           std::unique_ptr<FSRandomRWFile> *result,
+                           IODebugContext *dbg) override {
+    return target_->NewRandomRWFile(fname, file_opts, result, dbg);
+  }
+
+  IOStatus NewMemoryMappedFileBuffer(
+      const std::string &fname,
+      std::unique_ptr<MemoryMappedFileBuffer> *result) override {
+    return target_->NewMemoryMappedFileBuffer(fname, result);
+  }
+
+  IOStatus NewDirectory(const std::string &name, const IOOptions &io_opts,
+                        std::unique_ptr<FSDirectory> *result,
+                        IODebugContext *dbg) override {
+    return target_->NewDirectory(name, io_opts, result, dbg);
+  }
+
   IOStatus FileExists(const std::string &f, const IOOptions &io_opts,
                       IODebugContext *dbg) override {
     return target_->FileExists(f, io_opts, dbg);

@@ -9,6 +9,7 @@
 #include <cstdarg>
 #include <memory>
 #include <chrono>
+#include <unistd.h>
 
 #include "status.h"
 
@@ -76,7 +77,55 @@ public:
     return &static_env;
   }
 
+  // If true, then use mmap to read data.
+  // Not recommended for 32-bit OS.
+  bool use_mmap_reads = false;
+
+  // If true, then use mmap to write data
+  bool use_mmap_writes = true;
+
+  // If true, then use O_DIRECT for reading data
   bool use_direct_reads = false;
+
+  // If true, then use O_DIRECT for writing data
+  bool use_direct_writes = false;
+
+  // If false, fallocate() calls are bypassed
+  bool allow_fallocate = true;
+
+  // If true, set the FD_CLOEXEC on open fd.
+  bool set_fd_cloexec = true;
+
+  // Allows OS to incrementally sync files to disk while they are being
+  // written, in the background. Issue one request for every bytes_per_sync
+  // written. 0 turns it off.
+  // Default: 0
+  uint64_t bytes_per_sync = 0;
+
+  // When true, guarantees the file has at most `bytes_per_sync` bytes submitted
+  // for writeback at any given time.
+  //
+  //  - If `sync_file_range` is supported it achieves this by waiting for any
+  //    prior `sync_file_range`s to finish before proceeding. In this way,
+  //    processing (compression, etc.) can proceed uninhibited in the gap
+  //    between `sync_file_range`s, and we block only when I/O falls behind.
+  //  - Otherwise the `WritableFile::Sync` method is used. Note this mechanism
+  //    always blocks, thus preventing the interleaving of I/O and processing.
+  //
+  // Note: Enabling this option does not provide any additional persistence
+  // guarantees, as it may use `sync_file_range`, which does not write out
+  // metadata.
+  //
+  // Default: false
+  bool strict_bytes_per_sync = false;
+
+  // If true, we will preallocate the file with FALLOC_FL_KEEP_SIZE flag, which
+  // means that file size won't change as part of preallocation.
+  // If false, preallocation will also change the file size. This option will
+  // improve the performance in workloads where you sync the data on every
+  // write. By default, we set it to true for MANIFEST writes and false for
+  // WAL writes
+  bool fallocate_with_keep_size = true;
 
   std::string GenerateUniqueId() { return "todo"; }
 
@@ -84,6 +133,22 @@ public:
     auto now = std::chrono::high_resolution_clock::now();
     auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
     return micros.count();
+  }
+
+  uint64_t GetThreadID() const {
+    uint64_t thread_id = 0;
+#if defined(_GNU_SOURCE) && defined(__GLIBC_PREREQ)
+#if __GLIBC_PREREQ(2, 30)
+    thread_id = ::gettid();
+#else   // __GLIBC_PREREQ(2, 30)
+    pthread_t tid = pthread_self();
+    memcpy(&thread_id, &tid, std::min(sizeof(thread_id), sizeof(tid)));
+#endif  // __GLIBC_PREREQ(2, 30)
+#else   // defined(_GNU_SOURCE) && defined(__GLIBC_PREREQ)
+    pthread_t tid = pthread_self();
+    memcpy(&thread_id, &tid, std::min(sizeof(thread_id), sizeof(tid)));
+#endif  // defined(_GNU_SOURCE) && defined(__GLIBC_PREREQ)
+    return thread_id;
   }
 };
 
@@ -176,6 +241,11 @@ public:
 
   // If you're adding methods here, remember to add them to
   // DirectoryWrapper too.
+};
+
+class EnvLogger : public Logger {
+public:
+  EnvLogger() : Logger(InfoLogLevel::DEBUG_LEVEL) {}
 };
 
 }

@@ -314,10 +314,10 @@ class AquaFS : public FileSystemWrapper {
   }
 
 protected:
-  // IOStatus OpenWritableFile(const std::string& fname,
-  //                           const FileOptions& file_opts,
-  //                           std::unique_ptr<FSWritableFile>* result,
-  //                           IODebugContext* dbg, bool reopen);
+  IOStatus OpenWritableFile(const std::string& fname,
+                            const FileOptions& file_opts,
+                            std::unique_ptr<FSWritableFile>* result,
+                            IODebugContext* dbg, bool reopen);
 
 public:
   explicit AquaFS(ZonedBlockDevice *zbd, std::shared_ptr<FileSystem> aux_fs,
@@ -329,7 +329,7 @@ public:
 
   Status MkFS(std::string aux_fs_path, uint32_t finish_threshold,
               bool enable_gc);
-  // std::map<std::string, WriteLifeTimeHint> GetWriteLifeTimeHints();
+  std::map<std::string, WriteLifeTimeHint> GetWriteLifeTimeHints();
 
   const char *Name() const override {
     return "AquaFS - The Zoned-enabled File System";
@@ -339,31 +339,31 @@ public:
 
   void ReportSuperblock(std::string *report) { superblock_->GetReport(report); }
 
-  // virtual IOStatus NewSequentialFile(const std::string &fname,
-  //                                    const FileOptions &file_opts,
-  //                                    std::unique_ptr<FSSequentialFile> *result,
-  //                                    IODebugContext *dbg) override;
-  //
-  // virtual IOStatus NewRandomAccessFile(
-  //     const std::string &fname, const FileOptions &file_opts,
-  //     std::unique_ptr<FSRandomAccessFile> *result,
-  //     IODebugContext *dbg) override;
-  //
-  // virtual IOStatus NewWritableFile(const std::string &fname,
-  //                                  const FileOptions &file_opts,
-  //                                  std::unique_ptr<FSWritableFile> *result,
-  //                                  IODebugContext *dbg) override;
-  //
-  // virtual IOStatus ReuseWritableFile(const std::string &fname,
-  //                                    const std::string &old_fname,
-  //                                    const FileOptions &file_opts,
-  //                                    std::unique_ptr<FSWritableFile> *result,
-  //                                    IODebugContext *dbg) override;
-  //
-  // virtual IOStatus ReopenWritableFile(const std::string &fname,
-  //                                     const FileOptions &options,
-  //                                     std::unique_ptr<FSWritableFile> *result,
-  //                                     IODebugContext *dbg) override;
+  virtual IOStatus NewSequentialFile(const std::string &fname,
+                                     const FileOptions &file_opts,
+                                     std::unique_ptr<FSSequentialFile> *result,
+                                     IODebugContext *dbg) override;
+
+  virtual IOStatus NewRandomAccessFile(
+      const std::string &fname, const FileOptions &file_opts,
+      std::unique_ptr<FSRandomAccessFile> *result,
+      IODebugContext *dbg) override;
+
+  virtual IOStatus NewWritableFile(const std::string &fname,
+                                   const FileOptions &file_opts,
+                                   std::unique_ptr<FSWritableFile> *result,
+                                   IODebugContext *dbg) override;
+
+  virtual IOStatus ReuseWritableFile(const std::string &fname,
+                                     const std::string &old_fname,
+                                     const FileOptions &file_opts,
+                                     std::unique_ptr<FSWritableFile> *result,
+                                     IODebugContext *dbg) override;
+
+  virtual IOStatus ReopenWritableFile(const std::string &fname,
+                                      const FileOptions &options,
+                                      std::unique_ptr<FSWritableFile> *result,
+                                      IODebugContext *dbg) override;
 
   virtual IOStatus FileExists(const std::string &fname,
                               const IOOptions &options,
@@ -415,13 +415,13 @@ public:
     return IsDirectoryNoLock(path, options, is_dir, dbg);
   }
 
-  // IOStatus NewDirectory(const std::string &name, const IOOptions &io_opts,
-  //                       std::unique_ptr<FSDirectory> *result,
-  //                       IODebugContext *dbg) override {
-  //   Debug(logger_, "NewDirectory: %s to aux: %s\n", name.c_str(),
-  //         ToAuxPath(name).c_str());
-  //   return target()->NewDirectory(ToAuxPath(name), io_opts, result, dbg);
-  // }
+  IOStatus NewDirectory(const std::string &name, const IOOptions &io_opts,
+                        std::unique_ptr<FSDirectory> *result,
+                        IODebugContext *dbg) override {
+    Debug(logger_, "NewDirectory: %s to aux: %s\n", name.c_str(),
+          ToAuxPath(name).c_str());
+    return target()->NewDirectory(ToAuxPath(name), io_opts, result, dbg);
+  }
 
   IOStatus CreateDir(const std::string &d, const IOOptions &options,
                      IODebugContext *dbg) override {
@@ -493,19 +493,19 @@ public:
     return IOStatus::NotSupported("Truncate is not implemented in AquaFS");
   }
 
-  // virtual IOStatus NewRandomRWFile(const std::string & /*fname*/,
-  //                                  const FileOptions & /*options*/,
-  //                                  std::unique_ptr<FSRandomRWFile> * /*result*/,
-  //                                  IODebugContext * /*dbg*/) override {
-  //   return IOStatus::NotSupported("RandomRWFile is not implemented in AquaFS");
-  // }
-  //
-  // virtual IOStatus NewMemoryMappedFileBuffer(
-  //     const std::string & /*fname*/,
-  //     std::unique_ptr<MemoryMappedFileBuffer> * /*result*/) override {
-  //   return IOStatus::NotSupported(
-  //       "MemoryMappedFileBuffer is not implemented in AquaFS");
-  // }
+  virtual IOStatus NewRandomRWFile(const std::string & /*fname*/,
+                                   const FileOptions & /*options*/,
+                                   std::unique_ptr<FSRandomRWFile> * /*result*/,
+                                   IODebugContext * /*dbg*/) override {
+    return IOStatus::NotSupported("RandomRWFile is not implemented in AquaFS");
+  }
+
+  virtual IOStatus NewMemoryMappedFileBuffer(
+      const std::string & /*fname*/,
+      std::unique_ptr<MemoryMappedFileBuffer> * /*result*/) override {
+    return IOStatus::NotSupported(
+        "MemoryMappedFileBuffer is not implemented in AquaFS");
+  }
 
   void GetAquaFSSnapshot(AquaFSSnapshot &snapshot,
                          const AquaFSSnapshotOptions &options);
