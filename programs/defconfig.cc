@@ -4,7 +4,7 @@
 
 #include <iostream>
 #include <sstream>
-#include "fs/configuration.h"
+#include "../fs/configuration.h"
 
 // required:
 // GC_START_LEVEL,GC_SLOPE,

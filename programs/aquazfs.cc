@@ -5,10 +5,7 @@
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <fs/fs_aquafs.h>
-#include <fs/version.h>
 #include <gflags/gflags.h>
-#include <base/file_system.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -19,6 +16,10 @@
 #include <memory>
 #include <sstream>
 #include <streambuf>
+
+#include "../base/file_system.h"
+#include "../fs/fs_aquafs.h"
+#include "../fs/version.h"
 
 using GFLAGS_NAMESPACE::ParseCommandLineFlags;
 using GFLAGS_NAMESPACE::RegisterFlagValidator;
@@ -722,12 +723,13 @@ int aquafs_tool_restore() {
   if (!is_dir) {
     std::string dest_file =
         FLAGS_restore_path + fpath.lexically_normal().filename().string();
-    io_status = aquafs_tool_copy_file(f_fs, FLAGS_path, aquaFS.get(), dest_file);
+    io_status =
+        aquafs_tool_copy_file(f_fs, FLAGS_path, aquaFS.get(), dest_file);
   } else {
     AddDirSeparatorAtEnd(FLAGS_path);
     ReadWriteLifeTimeHints();
-    io_status =
-        aquafs_tool_copy_dir(f_fs, FLAGS_path, aquaFS.get(), FLAGS_restore_path);
+    io_status = aquafs_tool_copy_dir(f_fs, FLAGS_path, aquaFS.get(),
+                                     FLAGS_restore_path);
   }
 
   if (!io_status.ok()) {

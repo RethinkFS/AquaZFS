@@ -9,7 +9,7 @@
 #define XXH_STATIC_LINKING_ONLY 1
 #endif  // !defined(XXH_STATIC_LINKING_ONLY)
 #ifndef XXH_NAMESPACE
-#define XXH_NAMESPACE ROCKSDB_
+#define XXH_NAMESPACE AQUAFS_
 #endif  // !defined(XXH_NAMESPACE)
 
 // for FALLTHROUGH_INTENDED, inserted as appropriate

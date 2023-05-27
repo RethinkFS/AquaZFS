@@ -8,14 +8,14 @@ project(aquazfs)
 
 file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/fs/version.h "#pragma once\n#define AQUAFS_VERSION \"${AQUAFS_VERSION}\"\n")
 
-set(aquafs_LIBS "zbd" "gflags" "uring" "zstd" "lz4" "snappy" "bz2" "z" "numa")
+set(AquaZFS_LIBS "zbd" "gflags" "uring" "zstd" "lz4" "snappy" "bz2" "z" "numa")
 
-file(GLOB_RECURSE aquafs_SOURCES
+file(GLOB_RECURSE AquaZFS_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/**/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/**/*.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/**/*.c)
 
-file(GLOB_RECURSE aquafs_HEADERS
+file(GLOB_RECURSE AquaZFS_HEADERS
         ${CMAKE_CURRENT_SOURCE_DIR}/**/*.h)
 
 find_package(PkgConfig REQUIRED)
@@ -32,8 +32,8 @@ add_definitions(-DWITH_TERARKDB=1 -DOS_LINUX=1 -DROCKSDB_PLATFORM_POSIX=1)
 # include_directories(${NUMA_INCLUDE_DIR})
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-add_library(aquaz STATIC ${aquafs_SOURCES} ${aquafs_HEADERS})
-target_link_libraries(aquaz ${aquafs_LIBS})
+add_library(aquaz STATIC ${AquaZFS_SOURCES} ${AquaZFS_HEADERS})
+target_link_libraries(aquaz ${AquaZFS_LIBS})
 
 file(GLOB programs ${CMAKE_CURRENT_SOURCE_DIR}/programs/*.cc)
 foreach (program ${programs})
