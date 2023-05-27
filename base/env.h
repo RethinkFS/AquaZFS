@@ -5,11 +5,12 @@
 #ifndef AQUAFS_ENV_H
 #define AQUAFS_ENV_H
 
+#include <unistd.h>
+
 #include <cassert>
+#include <chrono>
 #include <cstdarg>
 #include <memory>
-#include <chrono>
-#include <unistd.h>
 
 #include "status.h"
 
@@ -35,13 +36,15 @@ enum InfoLogLevel : unsigned char {
 };
 
 class Logger {
-private:
+ private:
   InfoLogLevel log_level_;
-protected:
-public:
-  explicit Logger(InfoLogLevel logLevel) : log_level_(logLevel) {}
 
-public:
+ protected:
+ public:
+  explicit Logger(InfoLogLevel logLevel) : log_level_(logLevel) {}
+  virtual ~Logger() {}
+
+ public:
   // Write an entry to the log file with the specified format.
   //
   // Users who override the `Logv()` overload taking `InfoLogLevel` do not need
@@ -70,13 +73,9 @@ public:
   // Flush to the OS buffers
   virtual void Flush() {}
 
-  void SetInfoLogLevel(InfoLogLevel logLevel) {
-    log_level_ = logLevel;
-  }
+  void SetInfoLogLevel(InfoLogLevel logLevel) { log_level_ = logLevel; }
 
-  InfoLogLevel GetInfoLogLevel() const {
-    return log_level_;
-  }
+  InfoLogLevel GetInfoLogLevel() const { return log_level_; }
 };
 
 extern void Debug(const std::shared_ptr<Logger> &info_log, const char *format,
@@ -97,7 +96,7 @@ extern void Fatal(const std::shared_ptr<Logger> &info_log, const char *format,
 const size_t kDefaultPageSize = 4 * 1024;
 
 class Env {
-public:
+ public:
   static Env *Default() {
     static Env static_env{};
     return &static_env;
@@ -157,7 +156,8 @@ public:
 
   uint64_t NowMicros() {
     auto now = std::chrono::high_resolution_clock::now();
-    auto micros = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch());
+    auto micros = std::chrono::duration_cast<std::chrono::microseconds>(
+        now.time_since_epoch());
     return micros.count();
   }
 
@@ -197,13 +197,13 @@ public:
   // Only overwrites *unix_time on success.
   Status GetCurrentTime(int64_t *unix_time);
 
-private:
+ private:
   static const size_t kMaxHostNameLen = 256;
 };
 
 // A file abstraction for random reading and writing.
 class RandomRWFile {
-public:
+ public:
   RandomRWFile() = default;
 
   // No copying allowed
@@ -251,7 +251,7 @@ public:
 // MemoryMappedFileBuffer object represents a memory-mapped file's raw buffer.
 // Subclasses should release the mapping upon destruction.
 class MemoryMappedFileBuffer {
-public:
+ public:
   MemoryMappedFileBuffer(void *_base, size_t _length)
       : base_(_base), length_(_length) {}
 
@@ -267,7 +267,7 @@ public:
 
   size_t GetLen() const { return length_; }
 
-protected:
+ protected:
   void *base_;
   const size_t length_;
 };
@@ -275,7 +275,7 @@ protected:
 // Directory object represents collection of files and implements
 // filesystem operations that can be executed on directories.
 class Directory {
-public:
+ public:
   virtual ~Directory() {}
 
   // Fsync directory. Can be called concurrently from multiple threads.
@@ -293,10 +293,10 @@ public:
 };
 
 class EnvLogger : public Logger {
-public:
+ public:
   EnvLogger() : Logger(InfoLogLevel::DEBUG_LEVEL) {}
 };
 
-}
+}  // namespace aquafs
 
-#endif //AQUAFS_ENV_H
+#endif  // AQUAFS_ENV_H

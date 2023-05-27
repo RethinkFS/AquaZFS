@@ -11,9 +11,8 @@
 #include <random>
 
 #include "port.h"
-#include "rocksdb/env.h"
 #include "rocksdb/version.h"
-#include "util/hash.h"
+#include "hash.h"
 #include "env.h"
 
 namespace aquafs {

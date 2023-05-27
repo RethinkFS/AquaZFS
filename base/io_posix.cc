@@ -38,12 +38,12 @@
 
 #endif
 
-#include "monitoring/iostats_context_imp.h"
+#include "util/monitoring/iostats_context_imp.h"
 #include "port.h"
 #include "slice.h"
 #include "util/monitoring/sync_point.h"
 #include "base/coding.h"
-#include "util/string_util.h"
+#include "string_util.h"
 
 #if defined(OS_LINUX) && !defined(F_SET_RW_HINT)
 #define F_LINUX_SPECIFIC_BASE 1024

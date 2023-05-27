@@ -26,6 +26,7 @@ struct ConfigOptions;
 // operating system time-related functionality.
 class SystemClock {
 public:
+  virtual ~SystemClock() {}
   static const char *Type() { return "SystemClock"; }
   // static Status CreateFromString(const ConfigOptions& options,
   //                                const std::string& value,

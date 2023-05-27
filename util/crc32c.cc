@@ -23,6 +23,7 @@
 
 #include "base/coding.h"
 #include "base/math.h"
+#include "base/lang.h"
 
 // #include <sys/auxv.h>
 

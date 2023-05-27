@@ -24,7 +24,7 @@
 #include <fstream>
 #include <string>
 
-#include "util/string_util.h"
+#include "string_util.h"
 
 namespace aquafs::port {
 const bool kDefaultToAdaptiveMutex = false;
