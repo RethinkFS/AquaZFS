@@ -17,7 +17,7 @@
 #include <thread>
 #include <vector>
 
-#include "base/slice.h"
+#include "slice.h"
 
 #ifdef NDEBUG
 // empty in release build

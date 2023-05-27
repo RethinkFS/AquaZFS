@@ -21,9 +21,9 @@
 #include <wmmintrin.h>
 #endif
 
-#include "base/coding.h"
-#include "base/math.h"
-#include "base/lang.h"
+#include "coding.h"
+#include "math.h"
+#include "lang.h"
 
 // #include <sys/auxv.h>
 

@@ -56,13 +56,13 @@
 #include <vector>
 #include <mutex>
 
-#include "util/monitoring/iostats_context_imp.h"
-#include "util/monitoring/sync_point.h"
-#include "util/port.h"
-#include "base/slice.h"
-#include "base/coding.h"
-#include "base/file_system.h"
-#include "base/io_posix.h"
+#include "iostats_context_imp.h"
+#include "sync_point.h"
+#include "port.h"
+#include "slice.h"
+#include "coding.h"
+#include "file_system.h"
+#include "io_posix.h"
 #include "system_clock.h"
 #include "string_util.h"
 #include "lang.h"

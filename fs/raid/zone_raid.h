@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 #include "../zbd_aquafs.h"
-#include "base/io_status.h"
+#include "../../base/io_status.h"
 
 
 namespace aquafs {

@@ -14,7 +14,7 @@
 #include <cstdint>
 #include <cstring>
 
-#include "util/port.h"  // for port::kLittleEndian
+#include "port.h"  // for port::kLittleEndian
 
 namespace aquafs {
 

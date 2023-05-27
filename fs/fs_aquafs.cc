@@ -25,10 +25,10 @@
 #endif
 
 
-#include "base/coding.h"
+#include "../base/coding.h"
 #include "snapshot.h"
 #include "configuration.h"
-#include "crc32c.h"
+#include "../base/crc32c.h"
 
 #define DEFAULT_AQUAV_LOG_PATH "/tmp/"
 

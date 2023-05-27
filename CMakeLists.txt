@@ -31,7 +31,7 @@ add_definitions(-DWITH_TERARKDB=1 -DOS_LINUX=1 -DROCKSDB_PLATFORM_POSIX=1)
 #add_definitions(-DNUMA)
 # include_directories(${NUMA_INCLUDE_DIR})
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/util ${CMAKE_CURRENT_SOURCE_DIR}/base)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 add_library(aquaz STATIC ${aquafs_SOURCES} ${aquafs_HEADERS})
 target_link_libraries(aquaz ${aquafs_LIBS})
 

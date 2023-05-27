@@ -19,11 +19,11 @@
 #include <map>
 #include <string>
 
-#include "util/port.h"
-#include "base/env.h"
-#include "base/file_system.h"
-#include "base/io_status.h"
-#include "util/monitoring/sync_point.h"
+#include "port.h"
+#include "env.h"
+#include "file_system.h"
+#include "io_status.h"
+#include "sync_point.h"
 #include "mutexlock.h"
 
 // For non linux platform, the following macros are used only as place

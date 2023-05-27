@@ -18,10 +18,10 @@ namespace fs = std::filesystem;
 #include "metrics.h"
 #include "raid/zone_raid.h"
 #include "raid/zone_raid_auto.h"
-#include "base/env.h"
-#include "base/file_system.h"
+#include "../base/env.h"
+#include "../base/file_system.h"
 
-#include "base/status.h"
+#include "../base/status.h"
 #include "snapshot.h"
 #include "version.h"
 #include "zbd_aquafs.h"

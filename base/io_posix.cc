@@ -38,11 +38,11 @@
 
 #endif
 
-#include "util/monitoring/iostats_context_imp.h"
+#include "iostats_context_imp.h"
 #include "port.h"
 #include "slice.h"
-#include "util/monitoring/sync_point.h"
-#include "base/coding.h"
+#include "sync_point.h"
+#include "coding.h"
 #include "string_util.h"
 
 #if defined(OS_LINUX) && !defined(F_SET_RW_HINT)

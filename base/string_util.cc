@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/slice.h"
-#include "util/sys_time.h"
+#include "slice.h"
+#include "sys_time.h"
 
 #ifndef __has_cpp_attribute
 #define ROCKSDB_HAS_CPP_ATTRIBUTE(x) 0

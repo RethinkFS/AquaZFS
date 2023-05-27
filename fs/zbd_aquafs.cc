@@ -27,8 +27,8 @@
 #include "raid/zone_raidc.h"
 #include "raid/zone_raid.h"
 #include "raid/zone_raid_auto.h"
-#include "base/env.h"
-#include "base/io_status.h"
+#include "../base/env.h"
+#include "../base/io_status.h"
 
 #include "snapshot.h"
 #include "zbdlib_aquafs.h"

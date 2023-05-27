@@ -24,8 +24,8 @@
 #include <fstream>
 #include <string>
 
-#include "base/env.h"
-#include "base/io_status.h"
+#include "../base/env.h"
+#include "../base/io_status.h"
 
 #define AQUAFS_ZONEFS_ZONE_OFFLINE(_f_mode) \
   (((_f_mode) &                             \
@@ -33,7 +33,7 @@
 #define AQUAFS_ZONEFS_DEFAULT_MAX_LIMIT 14
 #define AQUAFS_ZONEFS_DEFAULT_MAX_RD_LIMIT 100
 
-#include "base/io_status.h"
+#include "../base/io_status.h"
 
 
 namespace aquafs {

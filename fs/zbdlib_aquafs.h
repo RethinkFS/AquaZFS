@@ -10,7 +10,7 @@
 #include <cstring>
 #include <unistd.h>
 
-#include "base/io_status.h"
+#include "../base/io_status.h"
 
 #include "zbd_aquafs.h"
 

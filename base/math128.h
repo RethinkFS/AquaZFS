@@ -6,7 +6,7 @@
 #pragma once
 
 #include "coding_lean.h"
-#include "base/math.h"
+#include "math.h"
 
 #ifdef TEST_UINT128_COMPAT
 #undef HAVE_UINT128_EXTENSION

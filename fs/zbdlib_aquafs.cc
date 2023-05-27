@@ -18,8 +18,8 @@
 #include <fstream>
 #include <string>
 
-#include "base/env.h"
-#include "base/io_status.h"
+#include "../base/env.h"
+#include "../base/io_status.h"
 
 
 namespace aquafs {
