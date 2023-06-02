@@ -456,7 +456,8 @@ public:
   // Returns the string "OK" for success.
   std::string ToString() const;
 
-protected:
+// protected:
+ public:
   Code code_;
   SubCode subcode_;
   Severity sev_;
