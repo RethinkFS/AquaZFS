@@ -7,12 +7,12 @@
 #pragma once
 
 #include <cstdint>
-
-#include <errno.h>
+#include <unordered_set>
+#include <cerrno>
 #include <libzbd/zbd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #include <unistd.h>
 
 #include <atomic>
@@ -155,6 +155,20 @@ class ZonedBlockDeviceBackend {
   [[nodiscard]] uint32_t GetNrZones() const { return nr_zones_; };
   [[nodiscard]] virtual bool IsRAIDEnabled() const { return false; };
   virtual ~ZonedBlockDeviceBackend() = default;
+
+  virtual void setZoneOffline(unsigned int idx, unsigned int idx2,
+                              bool offline) {
+    if (offline) {
+      printf("setting idx=%x to offline!\n", idx);
+      sim_offline_zones.insert(idx);
+      Close(idx * zone_sz_);
+    } else {
+      sim_offline_zones.erase(idx);
+    }
+  }
+
+ protected:
+  std::unordered_set<unsigned int> sim_offline_zones;
 };
 
 enum class ZbdBackendType { kBlockDev, kZoneFS, kRaid };

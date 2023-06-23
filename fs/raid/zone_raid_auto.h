@@ -5,25 +5,28 @@
 #ifndef ROCKSDB_ZONE_RAID_AUTO_H
 #define ROCKSDB_ZONE_RAID_AUTO_H
 
+#include <gflags/gflags.h>
+
 #include "zone_raid.h"
+#include "zone_raid_allocator.h"
+
+DECLARE_string(raid_auto_default);
 
 namespace aquafs {
 class RaidAutoZonedBlockDevice : public AbstractRaidZonedBlockDevice {
  public:
-  // use `map` or `unordered_map` to store raid mappings
-  template <typename K, typename V>
-  using map_use = std::unordered_map<K, V>;
-  using device_zone_map_t = map_use<idx_t, RaidMapItem>;
-  using mode_map_t = map_use<idx_t, RaidModeItem>;
+  // template <typename K, typename V>
+  // using map_use = ZoneRaidAllocator::map_use<K, V>;
+  using device_zone_map_t = ZoneRaidAllocator::device_zone_map_t;
+  using mode_map_t = ZoneRaidAllocator::mode_map_t;
   using raid_zone_t = struct zbd_zone;
 
+  ZoneRaidAllocator allocator;
+
  private:
-  // map: raid zone idx (* sz) -> device idx, device zone idx
-  device_zone_map_t device_zone_map_{};
-  // map: raid zone idx -> raid mode, option
-  mode_map_t mode_map_{};
   // auto-raid: manually managed zone info
   std::unique_ptr<raid_zone_t> a_zones_{};
+  zbd_zone *zone_info(idx_t idx) { return a_zones_.get() + idx; }
 
   void flush_zone_info();
 
@@ -36,8 +39,6 @@ class RaidAutoZonedBlockDevice : public AbstractRaidZonedBlockDevice {
 
   void layout_update(device_zone_map_t &&device_zone, mode_map_t &&mode_map);
   void layout_setup(device_zone_map_t &&device_zone, mode_map_t &&mode_map);
-  const device_zone_map_t &getDeviceZoneMap() const { return device_zone_map_; }
-  const mode_map_t &getModeMap() const { return mode_map_; }
 
   IOStatus Open(bool readonly, bool exclusive, unsigned int *max_active_zones,
                 unsigned int *max_open_zones) override;
@@ -68,7 +69,12 @@ class RaidAutoZonedBlockDevice : public AbstractRaidZonedBlockDevice {
   template <class T>
   T getAutoMappedDevicePos(T pos);
 
+  Status ScanAndHandleOffline();
+
   ~RaidAutoZonedBlockDevice() override = default;
+
+  void setZoneOffline(unsigned int idx, unsigned int idx2,
+                      bool offline) override;
 };
 
 class RaidInfoBasic {
@@ -83,9 +89,13 @@ class RaidInfoBasic {
   void load(ZonedBlockDevice *zbd) {
     assert(sizeof(RaidInfoBasic) == sizeof(uint32_t) * 5);
     if (zbd->IsRAIDEnabled()) {
+#ifdef ROCKSDB_USE_RTTI
       auto be =
           dynamic_cast<AbstractRaidZonedBlockDevice *>(zbd->getBackend().get());
       if (!be) return;
+#else
+      auto be = (AbstractRaidZonedBlockDevice *)(zbd->getBackend().get());
+#endif
       main_mode = be->getMainMode();
       nr_devices = be->nr_dev();
       dev_block_size = be->def_dev()->GetBlockSize();
@@ -96,9 +106,13 @@ class RaidInfoBasic {
 
   Status compatible(ZonedBlockDevice *zbd) const {
     if (!zbd->IsRAIDEnabled()) return Status::OK();
+#ifdef ROCKSDB_USE_RTTI
     auto be =
         dynamic_cast<AbstractRaidZonedBlockDevice *>(zbd->getBackend().get());
     if (!be) return Status::NotSupported("RAID Error", "cannot cast pointer");
+#else
+    auto be = (AbstractRaidZonedBlockDevice *)(zbd->getBackend().get());
+#endif
     if (main_mode != be->getMainMode())
       return Status::Corruption(
           "RAID Error", "main_mode mismatch: superblock-raid" +
@@ -121,6 +135,6 @@ class RaidInfoAppend {
   RaidAutoZonedBlockDevice::device_zone_map_t device_zone_map;
   RaidAutoZonedBlockDevice::mode_map_t mode_map;
 };
-}  // namespace aquafs
+}  // namespace AQUAFS_NAMESPACE
 
 #endif  // ROCKSDB_ZONE_RAID_AUTO_H

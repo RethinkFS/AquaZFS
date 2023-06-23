@@ -101,4 +101,4 @@ void Raid1ZonedBlockDevice::syncBackendInfo() {
   AbstractRaidZonedBlockDevice::syncBackendInfo();
   // do nothing
 }
-}  // namespace aquafs
+}  // namespace AQUAFS_NAMESPACE

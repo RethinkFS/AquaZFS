@@ -8,11 +8,11 @@
 
 #include "zbdlib_aquafs.h"
 
-#include <errno.h>
+#include <cerrno>
 #include <fcntl.h>
 #include <libzbd/zbd.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdlib>
+#include <cstring>
 #include <unistd.h>
 
 #include <fstream>
@@ -20,7 +20,7 @@
 
 #include "../base/env.h"
 #include "../base/io_status.h"
-
+#include "aquafs_utils.h"
 
 namespace aquafs {
 
@@ -121,6 +121,15 @@ std::unique_ptr<ZoneList> ZbdlibBackend::ListZones() {
     return nullptr;
   }
 
+  // add simulated offline sign
+  for (auto idx : sim_offline_zones) {
+    auto p = (struct zbd_zone *)zones;
+    if (idx < nr_zones_ && p)
+      p[idx].cond = ZBD_ZONE_COND_OFFLINE;
+    else
+      printf("invalid zone index %d\n", idx);
+  }
+
   std::unique_ptr<ZoneList> zl(new ZoneList(zones, nr_zones));
 
   return zl;
@@ -173,10 +182,38 @@ int ZbdlibBackend::InvalidateCache(uint64_t pos, uint64_t size) {
 }
 
 int ZbdlibBackend::Read(char *buf, int size, uint64_t pos, bool direct) {
+  // printf("ZbdlibBackend::Read size=%x, pos=%lx\n", size, pos);
+#ifdef AQUAFS_DETECT_READ_OFFLINE
+  int sz = size;
+  uint64_t pos2 = pos;
+  while (sz > 0) {
+    if (sim_offline_zones.find(pos2 / zone_sz_) != sim_offline_zones.end()) {
+      auto zones = ListZones();
+      auto idx = pos2 / zone_sz_;
+      auto s = ZoneStart(zones, idx);
+      auto w = ZoneWp(zones, idx);
+      auto sz_data = w - s;
+      printf(
+          "visiting offline zone! pos=%lx, size=%x, wp-start=%lx, wp=%lx, "
+          "start=%lx\n",
+          pos, size, sz_data, w, s);
+      return -1;
+    }
+    pos2 += std::min(static_cast<int>(zone_sz_), sz);
+    sz -= zone_sz_;
+  }
+#endif
+#ifdef AQUAFS_SIM_DELAY
+  delay_us(calculate_delay_us(size));
+#endif
   return pread(direct ? read_direct_f_ : read_f_, buf, size, pos);
 }
 
 int ZbdlibBackend::Write(char *data, uint32_t size, uint64_t pos) {
+  // printf("ZbdlibBackend::Write size=%x, pos=%lx\n", size, pos);
+#ifdef AQUAFS_SIM_DELAY
+  delay_us(calculate_delay_us(size));
+#endif
   return pwrite(write_f_, data, size, pos);
 }
 

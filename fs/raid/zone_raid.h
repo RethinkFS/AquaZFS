@@ -43,6 +43,11 @@ class RaidMapItem {
   uint16_t invalid{};
 
   Status DecodeFrom(Slice *input);
+
+  bool operator==(const RaidMapItem &rhs) const {
+    return device_idx == rhs.device_idx && zone_idx == rhs.zone_idx;
+  }
+  bool operator!=(const RaidMapItem &rhs) const { return !(rhs == *this); }
 };
 
 class RaidModeItem {

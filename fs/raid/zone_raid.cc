@@ -8,8 +8,6 @@
 #include <queue>
 #include <utility>
 
-#include "../../base/io_status.h"
-
 namespace aquafs {
 
 const char *raid_mode_str(RaidMode mode) {
@@ -64,7 +62,6 @@ class RaidConsoleLogger : public Logger {
     vprintf(format, ap);
     printf("\n");
     fflush(stdout);
-    lock_.unlock();
   }
 
   std::mutex lock_;
@@ -127,4 +124,4 @@ bool AbstractRaidZonedBlockDevice::IsRAIDEnabled() const { return true; }
 RaidMode AbstractRaidZonedBlockDevice::getMainMode() const {
   return main_mode_;
 }
-}  // namespace aquafs
+}  // namespace AQUAFS_NAMESPACE

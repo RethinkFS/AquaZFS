@@ -4,7 +4,6 @@
 
 #include "zone_raidc.h"
 
-#include <cstdint>
 namespace aquafs {
 RaidCZonedBlockDevice::RaidCZonedBlockDevice(
     const std::shared_ptr<Logger> &logger,

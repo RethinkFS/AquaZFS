@@ -4,6 +4,16 @@
 
 #include "zone_raid0.h"
 
+#ifdef AQUAFS_RAID_URING
+#include <algorithm>
+#include <ranges>
+#include <tuple>
+
+#include "../../liburing4cpp/include/liburing/io_service.hpp"
+#include "../aquafs_utils.h"
+#include "../zbdlib_aquafs.h"
+#endif
+
 namespace aquafs {
 void Raid0ZonedBlockDevice::syncBackendInfo() {
   AbstractRaidZonedBlockDevice::syncBackendInfo();
@@ -80,11 +90,57 @@ IOStatus Raid0ZonedBlockDevice::Close(uint64_t start) {
   }
   return r;
 }
+
+template <typename T, T...>
+struct integer_sequence {};
+
+template <std::size_t N, std::size_t... I>
+struct gen_indices : gen_indices<(N - 1), (N - 1), I...> {};
+template <std::size_t... I>
+struct gen_indices<0, I...> : integer_sequence<std::size_t, I...> {};
+
+template <typename H>
+std::string &to_string_impl(std::string &s, H &&h) {
+  using std::to_string;
+  s += to_string(std::forward<H>(h));
+  return s;
+}
+
+template <typename H, typename... T>
+std::string &to_string_impl(std::string &s, H &&h, T &&...t);
+
+template <typename... T>
+std::string &to_string_impl(std::string &s, char *const &h, T &&...t) {
+  // s += h;
+  s += std::to_string((uint64_t)((void *)h)) + ",";
+  return to_string_impl(s, std::forward<T>(t)...);
+}
+
+template <typename H, typename... T>
+std::string &to_string_impl(std::string &s, H &&h, T &&...t) {
+  s += std::to_string(std::forward<H>(h)) + ",";
+  return to_string_impl(s, std::forward<T>(t)...);
+}
+
+template <typename... T, std::size_t... I>
+std::string to_string(const std::tuple<T...> &tup,
+                      integer_sequence<std::size_t, I...>) {
+  std::string result;
+  int ctx[] = {(to_string_impl(result, std::get<I>(tup)...), 0), 0};
+  (void)ctx;
+  return result;
+}
+
+template <typename... T>
+std::string to_string(const std::tuple<T...> &tup) {
+  return to_string(tup, gen_indices<sizeof...(T)>{});
+}
+
 int Raid0ZonedBlockDevice::Read(char *buf, int size, uint64_t pos,
                                 bool direct) {
+#ifndef AQUAFS_RAID_URING
   // split read range as blocks
   int sz_read = 0;
-  // TODO: Read blocks in multi-threads
   int r;
   while (size > 0) {
     auto req_size =
@@ -100,11 +156,56 @@ int Raid0ZonedBlockDevice::Read(char *buf, int size, uint64_t pos,
     }
   }
   return sz_read;
+#else
+  uio::io_service service;
+  // split read range as blocks
+  int sz_read = 0;
+  using req_item_t = std::tuple<int, char *, uint64_t, off_t>;
+  std::vector<req_item_t> requests;
+  std::vector<ZbdlibBackend *> bes(nr_dev());
+  for (decltype(nr_dev()) i = 0; i < nr_dev(); i++) {
+#ifdef ROCKSDB_USE_RTTI
+    bes[i] = dynamic_cast<ZbdlibBackend *>(devices_[i].get());
+    assert(bes[i] != nullptr);
+#else
+    bes[i] = (ZbdlibBackend *)(devices_[i].get());
+#endif
+  }
+  while (size > 0) {
+    auto req_size =
+        std::min(size, static_cast<int>(GetBlockSize() - pos % GetBlockSize()));
+    if (req_size == 0) break;
+    auto be = bes[get_idx_dev(pos)];
+    assert(be != nullptr);
+    int fd = direct ? be->read_direct_f_ : be->read_f_;
+    requests.emplace_back(fd, buf, req_size, req_pos(pos));
+    size -= req_size;
+    sz_read += req_size;
+    buf += req_size;
+    pos += req_size;
+  }
+  service.run([&]() -> uio::task<> {
+    std::vector<uio::task<int>> futures;
+    for (const auto &req : requests) {
+      uint8_t flags = 0;
+      // if (req != *requests.cend()) flags |= IOSQE_IO_LINK;
+      futures.emplace_back(service.read(std::get<0>(req), std::get<1>(req),
+                                        std::get<2>(req), std::get<3>(req),
+                                        flags) |
+                           uio::panic_on_err("failed to read!", true));
+    }
+    for (auto &&fut : futures) co_await fut;
+  }());
+#ifdef AQUAFS_SIM_DELAY
+  delay_us(calculate_delay_us(size / requests.size()));
+#endif
+  return sz_read;
+#endif
 }
 int Raid0ZonedBlockDevice::Write(char *data, uint32_t size, uint64_t pos) {
+#ifndef AQUAFS_RAID_URING
   // split read range as blocks
   int sz_written = 0;
-  // TODO: write blocks in multi-threads
   int r;
   while (size > 0) {
     auto req_size = std::min(
@@ -125,6 +226,68 @@ int Raid0ZonedBlockDevice::Write(char *data, uint32_t size, uint64_t pos) {
     }
   }
   return sz_written;
+#else
+  uio::io_service service;
+  uint32_t sz_written = 0;
+  using req_item_t = std::tuple<char *, uint64_t, off_t>;
+  std::map<std::pair<int, idx_t>, std::vector<req_item_t>> requests;
+  std::vector<ZbdlibBackend *> bes(nr_dev());
+  for (decltype(nr_dev()) i = 0; i < nr_dev(); i++) {
+#ifdef ROCKSDB_USE_RTTI
+    bes[i] = dynamic_cast<ZbdlibBackend *>(devices_[i].get());
+    assert(bes[i] != nullptr);
+#else
+    bes[i] = (ZbdlibBackend *)(devices_[i].get());
+#endif
+  }
+  while (size > 0) {
+    auto req_size = std::min(
+        size, GetBlockSize() - (static_cast<uint32_t>(pos)) % GetBlockSize());
+    int fd = bes[get_idx_dev(pos)]->write_f_;
+    auto mapped_pos = req_pos(pos);
+    requests[{fd, mapped_pos / def_dev()->GetZoneSize()}].emplace_back(
+        data, req_size, mapped_pos);
+    size -= req_size;
+    sz_written += req_size;
+    data += req_size;
+    pos += req_size;
+  }
+  service.run([&]() -> uio::task<> {
+    // std::vector<uio::task<int>> futures;
+    std::vector<uio::sqe_awaitable> futures;
+    for (const auto &req_list : requests) {
+      for (auto &&req : req_list.second) {
+        uint8_t flags = 0;
+        // if (req != *req_list.second.cend()) flags |= IOSQE_IO_LINK;
+        futures.emplace_back(
+            service.write(req_list.first.first, std::get<0>(req),
+                          std::get<1>(req), std::get<2>(req), flags)
+            // |uio::panic_on_err("failed to write!", true)
+        );
+        // futures.emplace_back(
+        // co_await service.fsync(req_list.first, 0, flags);
+        // );
+        // pwrite(req_list.first, std::get<0>(req), std::get<1>(req),
+        //        std::get<2>(req));
+      }
+    }
+#ifdef AQUAFS_SIM_DELAY
+    delay_us(calculate_delay_us(size / requests.size()));
+#endif
+    // // FIXME: WTF...?
+    // for (auto &&fut : futures) {
+    //   // printf("awaiting...\n");
+    //   // fflush(stdout);
+    //   // delay_ms(1);
+    //   delay_us(0);
+    //   // co_await fut | uio::panic_on_err("failed to write!", true);
+    //   co_await fut;
+    //   break;
+    // }
+    co_return;
+  }());
+  return static_cast<int>(sz_written);
+#endif
 }
 int Raid0ZonedBlockDevice::InvalidateCache(uint64_t pos, uint64_t size) {
   assert(size % GetBlockSize() == 0);
