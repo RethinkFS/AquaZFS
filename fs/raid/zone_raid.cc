@@ -62,6 +62,7 @@ class RaidConsoleLogger : public Logger {
     vprintf(format, ap);
     printf("\n");
     fflush(stdout);
+    lock_.unlock();
   }
 
   std::mutex lock_;
