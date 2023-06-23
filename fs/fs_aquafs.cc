@@ -7,28 +7,27 @@
 #include "fs_aquafs.h"
 
 #include <dirent.h>
-#include <cerrno>
 #include <fcntl.h>
 #include <mntent.h>
-#include <cstdlib>
-#include <cstring>
 #include <unistd.h>
 
+#include <algorithm>
+#include <cerrno>
+#include <cstdlib>
+#include <cstring>
 #include <set>
 #include <sstream>
 #include <utility>
 #include <vector>
-#include <algorithm>
 
 #ifdef AQUAFS_EXPORT_PROMETHEUS
 #include "metrics_prometheus.h"
 #endif
 
-
 #include "../base/coding.h"
-#include "snapshot.h"
-#include "configuration.h"
 #include "../base/crc32c.h"
+#include "configuration.h"
+#include "snapshot.h"
 
 #define DEFAULT_AQUAV_LOG_PATH "/tmp/"
 
@@ -164,12 +163,12 @@ IOStatus AquaMetaLog::AddRecord(const Slice &slice) {
   assert(data != nullptr);
   assert((phys_sz % bs_) == 0);
 
-  ret = posix_memalign((void **) &buffer, sysconf(_SC_PAGESIZE), phys_sz);
+  ret = posix_memalign((void **)&buffer, sysconf(_SC_PAGESIZE), phys_sz);
   if (ret) return IOStatus::IOError("Failed to allocate memory");
 
   memset(buffer, 0, phys_sz);
 
-  crc = crc32c::Extend(crc, (const char *) &record_sz, sizeof(uint32_t));
+  crc = crc32c::Extend(crc, (const char *)&record_sz, sizeof(uint32_t));
   crc = crc32c::Extend(crc, data, record_sz);
   crc = crc32c::Mask(crc);
 
@@ -184,7 +183,7 @@ IOStatus AquaMetaLog::AddRecord(const Slice &slice) {
 }
 
 IOStatus AquaMetaLog::Read(Slice *slice) {
-  char *data = (char *) slice->data();
+  char *data = (char *)slice->data();
   size_t read = 0;
   size_t to_read = slice->size();
   int ret;
@@ -240,7 +239,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
 
   // printf("record_crc=%x, record_sz=%x\n", record_crc, record_sz);
 
-  if (record_sz == (uint32_t) (-1) && record_crc == (uint32_t) (-1)) {
+  if (record_sz == (uint32_t)(-1) && record_crc == (uint32_t)(-1)) {
     // EOF...
     return IOStatus::IOError("Not a valid record");
   }
@@ -252,7 +251,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
   s = Read(record);
   if (!s.ok()) return s;
 
-  actual_crc = crc32c::Value((const char *) &record_sz, sizeof(uint32_t));
+  actual_crc = crc32c::Value((const char *)&record_sz, sizeof(uint32_t));
   actual_crc = crc32c::Extend(actual_crc, record->data(), record->size());
 
   if (actual_crc != crc32c::Unmask(record_crc)) {
@@ -266,7 +265,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
 }
 
 class AquaFSConsoleLogger : public Logger {
-public:
+ public:
   using Logger::Logv;
 
   AquaFSConsoleLogger() : Logger(InfoLogLevel::INFO_LEVEL) {}
@@ -329,9 +328,10 @@ void AquaFS::GCWorker() {
 
     GetAquaFSSnapshot(snapshot, options);
 
-    uint64_t threshold = (100 - FLAGS_gc_slope * (FLAGS_gc_start_level - free_percent));
+    uint64_t threshold =
+        (100 - FLAGS_gc_slope * (FLAGS_gc_start_level - free_percent));
     std::set<uint64_t> migrate_zones_start;
-    for (const auto &zone: snapshot.zones_) {
+    for (const auto &zone : snapshot.zones_) {
       if (zone.capacity == 0) {
         uint64_t garbage_percent_approx =
             100 - 100 * zone.used_capacity / zone.max_capacity;
@@ -343,7 +343,7 @@ void AquaFS::GCWorker() {
     }
 
     std::vector<ZoneExtentSnapshot *> migrate_exts;
-    for (auto &ext: snapshot.extents_) {
+    for (auto &ext : snapshot.extents_) {
       if (migrate_zones_start.find(ext.zone_start) !=
           migrate_zones_start.end()) {
         migrate_exts.push_back(&ext);
@@ -353,7 +353,7 @@ void AquaFS::GCWorker() {
     if (migrate_exts.size() > 0) {
       IOStatus s;
       Info(logger_, "Garbage collecting %d extents \n",
-           (int) migrate_exts.size());
+           (int)migrate_exts.size());
       s = MigrateExtents(migrate_exts);
       if (!s.ok()) {
         Error(logger_, "Garbage collection failed");
@@ -394,10 +394,11 @@ void AquaFS::LogFiles() {
          zFile->IsSparse());
     for (unsigned int i = 0; i < extents.size(); i++) {
       ZoneExtent *extent = extents[i];
-      Info(logger_, "          Extent %u {start=0x%lx, zone=%u, len=%lu} ", i,
-           extent->start_,
-           (uint32_t) (extent->zone_->start_ / zbd_->GetZoneSize()),
-           extent->length_);
+      if (i < 4)
+        Info(logger_, "          Extent %u {start=0x%lx, zone=%u, len=%lu} ", i,
+             extent->start_,
+             (uint32_t)(extent->zone_->start_ / zbd_->GetZoneSize()),
+             extent->length_);
 
       total_size += extent->length_;
     }
@@ -455,7 +456,7 @@ IOStatus AquaFS::RollMetaZoneLocked() {
     return IOStatus::NoSpace("Out of metadata zones");
   }
 
-  Info(logger_, "Rolling to metazone %d\n", (int) new_meta_zone->GetZoneNr());
+  Info(logger_, "Rolling to metazone %d\n", (int)new_meta_zone->GetZoneNr());
   new_meta_log.reset(new AquaMetaLog(zbd_, new_meta_zone));
 
   old_meta_log.swap(meta_log_);
@@ -756,7 +757,7 @@ void AquaFS::GetAquaFSChildrenNoLock(const std::string &dir,
         return full_path.substr(dir_with_terminating_seperator.length());
       };
 
-  for (auto const &it: files_) {
+  for (auto const &it : files_) {
     fs::path file_path(it.first);
     assert(file_path.has_filename());
 
@@ -794,7 +795,7 @@ IOStatus AquaFS::GetChildrenNoLock(const std::string &dir_path,
     return s;
   }
 
-  for (const auto &f: auxfiles) {
+  for (const auto &f : auxfiles) {
     if (f != "." && f != "..") result->push_back(f);
   }
 
@@ -826,7 +827,7 @@ IOStatus AquaFS::DeleteDirRecursiveNoLock(const std::string &dir,
     return s;
   }
 
-  for (const auto &child: children) {
+  for (const auto &child : children) {
     std::string file_to_delete = (fs::path(d) / fs::path(child)).string();
     bool is_dir;
 
@@ -942,7 +943,7 @@ IOStatus AquaFS::GetFileModificationTime(const std::string &filename,
   std::lock_guard<std::mutex> lock(files_mtx_);
   if (files_.find(f) != files_.end()) {
     zoneFile = files_[f];
-    *mtime = (uint64_t) zoneFile->GetFileModificationTime();
+    *mtime = (uint64_t)zoneFile->GetFileModificationTime();
   } else {
     s = target()->GetFileModificationTime(ToAuxPath(f), options, mtime, dbg);
   }
@@ -987,7 +988,7 @@ IOStatus AquaFS::RollbackAuxDirRenameNoLock(
     IODebugContext *dbg) {
   IOStatus s;
 
-  for (const auto &rollback_child: renamed_children) {
+  for (const auto &rollback_child : renamed_children) {
     s = RenameChildNoLock(dest_path, source_path, rollback_child, options, dbg);
     if (!s.ok()) {
       return IOStatus::Corruption(
@@ -1023,7 +1024,7 @@ IOStatus AquaFS::RenameAuxPathNoLock(const std::string &source_path,
 
   GetAquaFSChildrenNoLock(source_path, true, &children);
 
-  for (const auto &child: children) {
+  for (const auto &child : children) {
     s = RenameChildNoLock(source_path, dest_path, child, options, dbg);
     if (!s.ok()) {
       IOStatus failed_rename = s;
@@ -1140,7 +1141,7 @@ IOStatus AquaFS::NumFileLinks(const std::string &file, const IOOptions &options,
 
     src_file = GetFileNoLock(fname);
     if (src_file != nullptr) {
-      *nr_links = (uint64_t) src_file->GetNrLinks();
+      *nr_links = (uint64_t)src_file->GetNrLinks();
       return IOStatus::OK();
     }
   }
@@ -1192,7 +1193,7 @@ void AquaFS::EncodeSnapshotTo(std::string *output) {
 void AquaFS::EncodeJson(std::ostream &json_stream) {
   bool first_element = true;
   json_stream << "[";
-  for (const auto &file: files_) {
+  for (const auto &file : files_) {
     if (first_element) {
       first_element = false;
     } else {
@@ -1218,7 +1219,7 @@ Status AquaFS::DecodeFileUpdateFrom(Slice *slice, bool replace) {
   for (auto it = files_.begin(); it != files_.end(); it++) {
     std::shared_ptr<ZoneFile> zFile = it->second;
     if (id == zFile->GetID()) {
-      for (const auto &name: zFile->GetLinkFiles()) {
+      for (const auto &name : zFile->GetLinkFiles()) {
         if (files_.find(name) != files_.end())
           files_.erase(name);
         else
@@ -1230,7 +1231,7 @@ Status AquaFS::DecodeFileUpdateFrom(Slice *slice, bool replace) {
 
       if (!s.ok()) return s;
 
-      for (const auto &name: zFile->GetLinkFiles())
+      for (const auto &name : zFile->GetLinkFiles())
         files_.insert(std::make_pair(name, zFile));
 
       return Status::OK();
@@ -1258,7 +1259,7 @@ Status AquaFS::DecodeSnapshotFrom(Slice *input) {
     if (zoneFile->GetID() >= next_file_id_)
       next_file_id_ = zoneFile->GetID() + 1;
 
-    for (const auto &name: zoneFile->GetLinkFiles())
+    for (const auto &name : zoneFile->GetLinkFiles())
       files_.insert(std::make_pair(name, zoneFile));
   }
 
@@ -1304,7 +1305,7 @@ Status AquaFS::DecodeFileDeletionFrom(Slice *input) {
   return Status::OK();
 }
 
-Status AquaFS::DecodeRaidAppendFrom(Slice* slice) {
+Status AquaFS::DecodeRaidAppendFrom(Slice *slice) {
   // on disk, map format is:
   // <uint32_t> nr_device_zone_map
   // <nr_device_zone_map> {
@@ -1339,15 +1340,15 @@ Status AquaFS::DecodeRaidAppendFrom(Slice* slice) {
     mode_map[raid_zone_idx] = item;
   }
 #ifdef ROCKSDB_USE_RTTI
-  auto be = dynamic_cast<RaidAutoZonedBlockDevice*>(zbd_->getBackend().get());
+  auto be = dynamic_cast<RaidAutoZonedBlockDevice *>(zbd_->getBackend().get());
 #else
-  auto be = (RaidAutoZonedBlockDevice*)(zbd_->getBackend().get());
+  auto be = (RaidAutoZonedBlockDevice *)(zbd_->getBackend().get());
 #endif
   be->layout_update(std::move(device_zone), std::move(mode_map));
   return Status::OK();
 }
 
-Status AquaFS::DecodeBlockingDeviceZones(Slice* slice) {
+Status AquaFS::DecodeBlockingDeviceZones(Slice *slice) {
   // format: <uint32_t> dev_idx, <uint32_t> dev_zone_idx
   uint32_t dev_idx, dev_zone_idx;
   if (!GetFixed32(slice, &dev_idx))
@@ -1355,9 +1356,9 @@ Status AquaFS::DecodeBlockingDeviceZones(Slice* slice) {
   if (!GetFixed32(slice, &dev_zone_idx))
     return Status::IOError("decode zone idx failed");
 #ifdef ROCKSDB_USE_RTTI
-  auto be = dynamic_cast<RaidAutoZonedBlockDevice*>(zbd_->getBackend().get());
+  auto be = dynamic_cast<RaidAutoZonedBlockDevice *>(zbd_->getBackend().get());
 #else
-  auto be = (RaidAutoZonedBlockDevice*)(zbd_->getBackend().get());
+  auto be = (RaidAutoZonedBlockDevice *)(zbd_->getBackend().get());
 #endif
   if (be) {
     be->setZoneOffline(dev_idx, dev_zone_idx, true);
@@ -1481,7 +1482,7 @@ Status AquaFS::Mount(bool readonly) {
   }
 
   /* Find all valid superblocks */
-  for (const auto z: metazones) {
+  for (const auto z : metazones) {
     std::unique_ptr<AquaMetaLog> log;
     std::string scratch;
     Slice super_record;
@@ -1525,7 +1526,7 @@ Status AquaFS::Mount(bool readonly) {
      If that fails go to the previous as we might have crashed when rolling
      metadata zone.
   */
-  for (const auto &sm: seq_map) {
+  for (const auto &sm : seq_map) {
     uint32_t i = sm.second;
     std::string scratch;
     std::unique_ptr<AquaMetaLog> log = std::move(valid_logs[i]);
@@ -1553,7 +1554,7 @@ Status AquaFS::Mount(bool readonly) {
     return Status::IOError("Failed to mount filesystem");
   }
 
-  Info(logger_, "Recovered from zone: %d", (int) valid_zones[r]->GetZoneNr());
+  Info(logger_, "Recovered from zone: %d", (int)valid_zones[r]->GetZoneNr());
   superblock_ = std::move(valid_superblocks[r]);
   zbd_->setFinishThreshold(superblock_->GetFinishTreshold());
 
@@ -1566,7 +1567,7 @@ Status AquaFS::Mount(bool readonly) {
   }
 
   /* Free up old metadata zones, to get ready to roll */
-  for (const auto &sm: seq_map) {
+  for (const auto &sm : seq_map) {
     uint32_t i = sm.second;
     /* Don't reset the current metadata zone */
     if (i != r) {
@@ -1592,7 +1593,7 @@ Status AquaFS::Mount(bool readonly) {
     }
   }
 
-  Info(logger_, "Superblock sequence %d", (int) superblock_->GetSeq());
+  Info(logger_, "Superblock sequence %d", (int)superblock_->GetSeq());
   Info(logger_, "Finish threshold %u", superblock_->GetFinishTreshold());
   Info(logger_, "Filesystem mount OK");
 
@@ -1630,7 +1631,7 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
   IOStatus status = zbd_->ResetUnusedIOZones();
   if (!status.ok()) return status;
 
-  for (const auto mz: metazones) {
+  for (const auto mz : metazones) {
     if (!mz->Acquire()) {
       assert(false);
       return Status::Aborted("Could not aquire busy flag of zone " +
@@ -1768,7 +1769,7 @@ Status AppendAquaFileSystem(
     Slice super_record;
     Status s;
 
-    for (const auto z: metazones) {
+    for (const auto z : metazones) {
       Superblock super_block;
       std::unique_ptr<AquaMetaLog> log;
       if (!z->Acquire()) {
@@ -1844,7 +1845,7 @@ void AquaFS::GetAquaFSSnapshot(AquaFSSnapshot &snapshot,
   }
   if (options.zone_file_) {
     std::lock_guard<std::mutex> file_lock(files_mtx_);
-    for (const auto &file_it: files_) {
+    for (const auto &file_it : files_) {
       ZoneFile &file = *(file_it.second);
 
       /* Skip files open for writing, as extents are being updated */
@@ -1853,7 +1854,7 @@ void AquaFS::GetAquaFSSnapshot(AquaFSSnapshot &snapshot,
       // file -> extents mapping
       snapshot.zone_files_.emplace_back(file);
       // extent -> file mapping
-      for (auto *ext: file.GetExtents()) {
+      for (auto *ext : file.GetExtents()) {
         snapshot.extents_.emplace_back(*ext, file.GetFilename());
       }
 
@@ -1875,7 +1876,7 @@ IOStatus AquaFS::MigrateExtents(
   IOStatus s;
   // Group extents by their filename
   std::map<std::string, std::vector<ZoneExtentSnapshot *>> file_extents;
-  for (auto *ext: extents) {
+  for (auto *ext : extents) {
     std::string fname = ext->filename;
     // We only migrate SST file extents
     if (ends_with(fname, ".sst")) {
@@ -1883,7 +1884,7 @@ IOStatus AquaFS::MigrateExtents(
     }
   }
 
-  for (const auto &it: file_extents) {
+  for (const auto &it : file_extents) {
     s = MigrateFileExtents(it.first, it.second);
     if (!s.ok()) break;
     s = zbd_->ResetUnusedIOZones();
@@ -1913,13 +1914,13 @@ IOStatus AquaFS::MigrateFileExtents(
 
   std::vector<ZoneExtent *> new_extent_list;
   std::vector<ZoneExtent *> extents = zfile->GetExtents();
-  for (const auto *ext: extents) {
+  for (const auto *ext : extents) {
     new_extent_list.push_back(
         new ZoneExtent(ext->start_, ext->length_, ext->zone_));
   }
 
   // Modify the new extent list
-  for (ZoneExtent *ext: new_extent_list) {
+  for (ZoneExtent *ext : new_extent_list) {
     // Check if current extent need to be migrated
     auto it = std::find_if(migrate_exts.begin(), migrate_exts.end(),
                            [&](const ZoneExtentSnapshot *ext_snapshot) {
@@ -1985,9 +1986,9 @@ IOStatus AquaFS::MigrateFileExtents(
 
 IOStatus AquaFS::selectZoneToOffline() {
 #ifdef ROCKSDB_USE_RTTI
-  auto p = dynamic_cast<RaidAutoZonedBlockDevice*>(zbd_->getBackend().get());
+  auto p = dynamic_cast<RaidAutoZonedBlockDevice *>(zbd_->getBackend().get());
 #else
-  auto p = (RaidAutoZonedBlockDevice*)(zbd_->getBackend().get());
+  auto p = (RaidAutoZonedBlockDevice *)(zbd_->getBackend().get());
 #endif
   if (!p) {
     Error(logger_, "zbd_ is not a RaidAutoZonedBlockDevice, unsupported");
@@ -2010,13 +2011,13 @@ IOStatus AquaFS::selectZoneToOffline() {
 }
 IOStatus AquaFS::blockingDeviceZone(size_t device, size_t zone) {
 #ifdef ROCKSDB_USE_RTTI
-  auto p = dynamic_cast<RaidAutoZonedBlockDevice*>(zbd_->getBackend().get());
+  auto p = dynamic_cast<RaidAutoZonedBlockDevice *>(zbd_->getBackend().get());
   if (!p) {
     Error(logger_, "zbd_ is not a RaidAutoZonedBlockDevice, unsupported");
     return IOStatus::IOError("unsupported");
   }
 #else
-  auto p = (RaidAutoZonedBlockDevice*)(zbd_->getBackend().get());
+  auto p = (RaidAutoZonedBlockDevice *)(zbd_->getBackend().get());
 #endif
   std::string output;
   std::string record;
@@ -2035,7 +2036,8 @@ IOStatus AquaFS::blockingDeviceZone(size_t device, size_t zone) {
 // #if (ROCKSDB_MAJOR < 6) || (ROCKSDB_MAJOR <= 6 && ROCKSDB_MINOR < 28)
 //     ObjectLibrary::Default()->Register<FileSystem>(
 //         "aquafs://.*", [](const std::string &uri,
-//                           std::unique_ptr<FileSystem> *f, std::string *errmsg) {
+//                           std::unique_ptr<FileSystem> *f, std::string
+//                           *errmsg) {
 // #else
 //           ObjectLibrary::Default()->AddFactory<FileSystem>(
 //               ObjectLibrary::PatternEntry("aquafs", false)

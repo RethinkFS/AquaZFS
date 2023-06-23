@@ -13,12 +13,12 @@
 using namespace aquafs;
 
 typedef struct test_result {
-  int dev_num;
-  std::string fs_uri;
-  uint64_t size;
-  uint64_t time_read;
-  uint64_t time_write;
-  int rounds;
+  int dev_num{};
+  std::string fs_uri{};
+  uint64_t size{};
+  uint64_t time_read{};
+  uint64_t time_write{};
+  int rounds{};
 } test_result_t;
 
 std::vector<test_result_t> results;
