@@ -9,7 +9,7 @@
 //
 // A portable implementation of crc32c, optimized to handle
 // four bytes at a time.
-#include "util/crc32c.h"
+#include "crc32c.h"
 
 #include <cstdint>
 

@@ -14,7 +14,7 @@
 #include <algorithm>
 
 #include "slice_transform.h"
-#include "util/string_util.h"
+#include "string_util.h"
 
 namespace aquafs {
 
