@@ -870,8 +870,8 @@ long aquafs_tools_call(const std::vector<std::string> &v) {
 }
 
 void prepare_test_env(int num) {
-  std::string path_prefix = "../../../plugin/aquafs";
-  auto cmd = "sudo " + path_prefix + "/tests/nullblk/refresh.sh " +
+  std::string path_prefix = "../../../../plugin/AquaFS";
+  auto cmd = "sudo " + path_prefix + "/scripts/nullblk/refresh.sh " +
              std::to_string(num);
   system(cmd.c_str());
 }
