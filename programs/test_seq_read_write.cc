@@ -92,4 +92,5 @@ int main() {
            result.size / 1024 / 1024, result.time_read, result.time_write,
            result.rounds, result.fs_uri.c_str());
   }
+  prepare_test_env(4);
 }
