@@ -394,11 +394,18 @@ int RaidAutoZonedBlockDevice::Write(char *data, uint32_t size, uint64_t pos) {
       //      mapped_pos, size, m.device_idx, m.zone_idx, r);
       return r;
     } else if (mode_item.mode == RaidMode::RAID1) {
+      // raid_zone_idx: 哪一个 RaidZone = 偏移量 / RaidZone 大小
       idx_t raid_zone_idx = pos / zone_sz_;
+      // inner_zone_idx: 哪一个 Device Zone = 偏移量 / Device Zone 大小
       idx_t inner_zone_idx = pos / def_dev()->GetZoneSize();
+      // inner_zone_idx_offset: 在 RaidZone 中是第几个 Device Zone
       idx_t inner_zone_idx_offset = inner_zone_idx % nr_dev();
+      // 在 RaidZone 内的偏移量
       auto inner_zone_offset = pos % def_dev()->GetZoneSize();
+      // Raid Zone Sub Index: 在 Device Zone Map 中的索引，这个索引值 / 设备数 = RaidZone Index
+      // Raid Zone Sub Index = (RaidZone Index * 设备数量) + (在 RaidZone 中是第几个 Device Zone)
       auto sub_idx = raid_zone_idx * nr_dev() + inner_zone_idx_offset;
+      // 用 Raid Zone Sub Index 查找映射信息
       auto fm = allocator.device_zone_map_.find(sub_idx);
       if (fm == allocator.device_zone_map_.end()) {
         Error(logger_,
@@ -744,17 +751,28 @@ RaidMapItem RaidAutoZonedBlockDevice::getAutoDeviceZoneFromIdx(T idx) {
 }
 template <class T>
 T RaidAutoZonedBlockDevice::getAutoMappedDevicePos(T pos) {
+  // 第几个 RaidZone (raid_zone_idx) = 偏移量 / RaidZone 大小
   auto raid_zone_idx = pos / zone_sz_;
+  // 找到这个偏移量对应着的 RaidZone 映射数据，映射到哪一个 Device 上的哪一个 Zone
   RaidMapItem map_item = getAutoDeviceZone(pos);
+  // 找这个 RaidZone Index 对应的 RaidMode，即 0/1/c
   auto mode_item = allocator.mode_map_[raid_zone_idx];
+  // 这个偏移量是逻辑上第几个 Block (Block Index) = 偏移量 / Block 大小
   auto blk_idx = pos / block_sz_;
   // if (mode_item.mode == RaidMode::RAID_NONE) {
   //   return pos;
   // } else
   if (mode_item.mode == RaidMode::RAID0) {
+    // RAID0 逻辑：
+    // Device 上对应 Zone 的偏移（start或者说base）
     auto base = map_item.zone_idx * def_dev()->GetZoneSize();
+    // 一个 RaidZone 有多少 Block (nr_blk_in_raid_zone) = RaidZone 大小 / Block 大小
     auto nr_blk_in_raid_zone = zone_sz_ / block_sz_;
+    // blk_idx_raid_zone: Block Index 在一个 RaidZone 内的偏移量
+    //   = Block Index % 一个 RaidZone 有多少 Block
     auto blk_idx_raid_zone = blk_idx % nr_blk_in_raid_zone;
+    // blk_idx_dev_zone: Block Index 在一个 Device Zone 内的偏移量
+    //   = Block Index 在一个 RaidZone 内的偏移量 / Device 数量
     auto blk_idx_dev_zone = blk_idx_raid_zone / nr_dev();
     auto offset_in_blk = pos % block_sz_;
     auto offset_in_zone = blk_idx_dev_zone * block_sz_;
