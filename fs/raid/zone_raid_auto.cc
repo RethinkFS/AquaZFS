@@ -14,10 +14,10 @@
 #ifdef AQUAFS_RAID_URING
 #include "../../liburing4cpp/include/liburing/io_service.hpp"
 #endif
+#include "../../base/coding.h"
 #include "../aquafs_utils.h"
 #include "../zbdlib_aquafs.h"
 #include "rocksdb/io_status.h"
-#include "../../base/coding.h"
 
 DEFINE_string(raid_auto_default, "1", "Default RAID mode for auto-raid");
 
@@ -61,8 +61,7 @@ IOStatus RaidAutoZonedBlockDevice::Open(bool readonly, bool exclusive,
   // allocate default layout
   a_zones_.reset(new raid_zone_t[nr_zones_]);
   memset(a_zones_.get(), 0, sizeof(raid_zone_t) * nr_zones_);
-  const auto target_default_raid =
-      raid_mode_from_str(FLAGS_raid_auto_default);
+  const auto target_default_raid = raid_mode_from_str(FLAGS_raid_auto_default);
   Info(logger_, "target_default_raid = %s", FLAGS_raid_auto_default.c_str());
   if (target_default_raid == RaidMode::RAID0) {
     // spare some free zones for dynamic allocation
@@ -947,4 +946,4 @@ void RaidAutoZonedBlockDevice::setZoneOffline(unsigned int idx,
   devices_[idx]->setZoneOffline(idx2, 0, offline);
 }
 
-}  // namespace AQUAFS_NAMESPACE
+}  // namespace aquafs

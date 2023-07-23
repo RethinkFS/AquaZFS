@@ -15,10 +15,14 @@
 #include <cerrno>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
+#include <ostream>
 #include <set>
 #include <sstream>
 #include <utility>
 #include <vector>
+
+#include "../base/env.h"
 
 #ifdef AQUAFS_EXPORT_PROMETHEUS
 #include "metrics_prometheus.h"
@@ -155,6 +159,7 @@ IOStatus AquaMetaLog::AddRecord(const Slice &slice) {
   char *buffer;
   int ret;
   IOStatus s;
+  // std::cout << "add record_sz : " << record_sz << std::endl;
 
   phys_sz = record_sz + zMetaHeaderSize;
 
@@ -200,6 +205,7 @@ IOStatus AquaMetaLog::Read(Slice *slice) {
   }
 
   while (read < to_read) {
+    std::cout << "Read Log " << std::endl;
     ret = zbd_->Read(data + read, read_pos_, to_read - read, false);
 
     if (ret == -1 && errno == EINTR) continue;
@@ -225,8 +231,11 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
   scratch->append(zMetaHeaderSize, 0);
   header = Slice(scratch->c_str(), zMetaHeaderSize);
 
+  // std::cout << "ReadRecord 1" << std::endl;
+
   s = Read(&header);
   if (!s.ok()) return s;
+  // std::cout << "ReadRecord 2" << std::endl;
 
   // EOF?
   if (header.empty()) {
@@ -236,6 +245,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
 
   GetFixed32(&header, &record_crc);
   GetFixed32(&header, &record_sz);
+  // std::cout << "read record size:" << record_sz << std::endl;
 
   // printf("record_crc=%x, record_sz=%x\n", record_crc, record_sz);
 
@@ -250,6 +260,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
   *record = Slice(scratch->c_str(), record_sz);
   s = Read(record);
   if (!s.ok()) return s;
+  // std::cout << "ReadRecord 3" << std::endl;
 
   actual_crc = crc32c::Value((const char *)&record_sz, sizeof(uint32_t));
   actual_crc = crc32c::Extend(actual_crc, record->data(), record->size());
@@ -261,6 +272,7 @@ IOStatus AquaMetaLog::ReadRecord(Slice *record, std::string *scratch) {
   /* Next record starts on a block boundary */
   if (read_pos_ % bs_) read_pos_ += bs_ - (read_pos_ % bs_);
 
+  // std::cout << "ReadRecord 4" << std::endl;
   return IOStatus::OK();
 }
 
@@ -1472,6 +1484,8 @@ Status AquaFS::Mount(bool readonly) {
 
   Status s;
 
+  // Info(logger_, "Mount begin");
+
   /* We need a minimum of two non-offline meta data zones */
   if (metazones.size() < 2) {
     Error(logger_,
@@ -1480,7 +1494,7 @@ Status AquaFS::Mount(bool readonly) {
           metazones.size());
     return Status::NotSupported();
   }
-
+  // Info(logger_, "Meta Zone Select");
   /* Find all valid superblocks */
   for (const auto z : metazones) {
     std::unique_ptr<AquaMetaLog> log;
@@ -1495,6 +1509,8 @@ Status AquaFS::Mount(bool readonly) {
 
     // log takes the ownership of z's busy flag.
     log = std::make_unique<AquaMetaLog>(zbd_, z);
+
+    // Info(logger_, "A Zone Is Selected");
 
     if (!log->ReadRecord(&super_record, &scratch).ok()) continue;
 
@@ -1628,7 +1644,9 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
         "Aux filesystem path must be less than 256 bytes\n");
   }
   ClearFiles();
+  std::cout << "In MKFS 1:" << std::endl;
   IOStatus status = zbd_->ResetUnusedIOZones();
+  std::cout << "In MKFS 2:" << std::endl;
   if (!status.ok()) return status;
 
   for (const auto mz : metazones) {
@@ -1637,7 +1655,7 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
       return Status::Aborted("Could not aquire busy flag of zone " +
                              std::to_string(mz->GetZoneNr()));
     }
-
+    std::cout << "in AquaFS::MKFS" << std::endl;
     if (mz->Reset().ok()) {
       if (!meta_zone) meta_zone = mz;
     } else {
@@ -1664,15 +1682,18 @@ Status AquaFS::MkFS(std::string aux_fs_p, uint32_t finish_threshold,
   std::string super_string;
   super.EncodeTo(&super_string);
 
+  std::cout << "In MKFS 3:" << std::endl;
   s = log->AddRecord(super_string);
   if (!s.ok()) return s;
 
+  std::cout << "In MKFS 4:" << std::endl;
   /* Write an empty snapshot to make the metadata zone valid */
   s = PersistSnapshot(log.get());
   if (!s.ok()) {
     Error(logger_, "Failed to persist snapshot: %s", s.ToString().c_str());
     return Status::IOError("Failed persist snapshot");
   }
+  std::cout << "In MKFS 5:" << std::endl;
 
   Info(logger_, "Empty filesystem created");
   return Status::OK();

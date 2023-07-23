@@ -4,9 +4,12 @@
 //  COPYING file in the root directory) and Apache 2.0 License
 //  (found in the LICENSE.Apache file in the root directory).
 
-#if !defined(ROCKSDB_LITE) && !defined(OS_WIN)
+#include <cstdio>
+#include <iterator>
+#include <ostream>
 
-#include "zbd_aquafs.h"
+#include "../fs/raid/zone_raid5.h"
+#if !defined(ROCKSDB_LITE) && !defined(OS_WIN)
 
 #include <cassert>
 #include <cerrno>
@@ -21,16 +24,15 @@
 #include <utility>
 #include <vector>
 
-
-#include "raid/zone_raid0.h"
-#include "raid/zone_raid1.h"
-#include "raid/zone_raidc.h"
-#include "raid/zone_raid.h"
-#include "raid/zone_raid_auto.h"
 #include "../base/env.h"
 #include "../base/io_status.h"
-
+#include "raid/zone_raid.h"
+#include "raid/zone_raid0.h"
+#include "raid/zone_raid1.h"
+#include "raid/zone_raid_auto.h"
+#include "raid/zone_raidc.h"
 #include "snapshot.h"
+#include "zbd_aquafs.h"
 #include "zbdlib_aquafs.h"
 #include "zonefs_aquafs.h"
 
@@ -128,6 +130,7 @@ IOStatus Zone::Append(char *data, uint32_t size) {
   while (left) {
     ret = zbd_be_->Write(ptr, left, wp_);
     if (ret < 0) {
+      // std::cout << "In Zone::Append" << std::endl;
       return IOStatus::IOError(strerror(errno));
     }
 
@@ -191,10 +194,14 @@ ZonedBlockDevice::ZonedBlockDevice(std::string path, ZbdBackendType backend,
       for (auto &&p : raid_paths) {
         if (p.find("dev:") == 0) {
           auto pp = p.substr(strlen("dev:"));
+          std::cout << pp << std::endl;
           raid_devices.emplace_back(std::make_unique<ZbdlibBackend>(pp));
-        } else
+        } else {
+          std::cout << p << std::endl;
           raid_devices.emplace_back(std::make_unique<ZoneFsBackend>(p));
+        }
       }
+      std::cout << raid_devices.size() << std::endl;
       auto mode = raid_mode_from_str(raid_num_str);
       switch (mode) {
         case RaidMode::RAID0:
@@ -211,6 +218,10 @@ ZonedBlockDevice::ZonedBlockDevice(std::string path, ZbdBackendType backend,
           break;
         case RaidMode::RAID_A:
           zbd_be_ = std::make_unique<RaidAutoZonedBlockDevice>(
+              logger_, std::move(raid_devices));
+          break;
+        case RaidMode::RAID5:
+          zbd_be_ = std::make_unique<Raid5ZoneBlockDevice>(
               logger_, std::move(raid_devices));
           break;
         default:
@@ -382,9 +393,9 @@ void ZonedBlockDevice::LogGarbageInfo() {
   // Log zone garbage stats vector.
   //
   // The values in the vector represents how many zones with target garbage
-  // percent. Garbage percent of each index: [0%, <10%, < 20%, ... <100%, 100%]
-  // For example `[100, 1, 2, 3....]` means 100 zones are empty, 1 zone has less
-  // than 10% garbage, 2 zones have  10% ~ 20% garbage ect.
+  // percent. Garbage percent of each index: [0%, <10%, < 20%, ... <100%,
+  // 100%] For example `[100, 1, 2, 3....]` means 100 zones are empty, 1 zone
+  // has less than 10% garbage, 2 zones have  10% ~ 20% garbage ect.
   //
   // We don't need to lock io_zones since we only read data and we don't need
   // the result to be precise.
@@ -441,8 +452,7 @@ unsigned int GetLifeTimeDiff(WriteLifeTimeHint zone_lifetime,
                              WriteLifeTimeHint file_lifetime) {
   assert(file_lifetime <= WLTH_EXTREME);
 
-  if ((file_lifetime == WLTH_NOT_SET) ||
-      (file_lifetime == WLTH_NONE)) {
+  if ((file_lifetime == WLTH_NOT_SET) || (file_lifetime == WLTH_NONE)) {
     if (file_lifetime == zone_lifetime) {
       return 0;
     } else {
@@ -633,9 +643,10 @@ IOStatus ZonedBlockDevice::FinishCheapestIOZone() {
   return s;
 }
 
-IOStatus ZonedBlockDevice::GetBestOpenZoneMatch(
-    WriteLifeTimeHint file_lifetime, unsigned int *best_diff_out,
-    Zone **zone_out, uint32_t min_capacity) {
+IOStatus ZonedBlockDevice::GetBestOpenZoneMatch(WriteLifeTimeHint file_lifetime,
+                                                unsigned int *best_diff_out,
+                                                Zone **zone_out,
+                                                uint32_t min_capacity) {
   unsigned int best_diff = LIFETIME_DIFF_NOT_GOOD;
   Zone *allocated_zone = nullptr;
   IOStatus s;

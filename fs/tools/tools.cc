@@ -13,17 +13,18 @@
 #include <fcntl.h>
 #include <gflags/gflags.h>
 #include <sys/stat.h>
-#include <cstdio>
 
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
-#include "../fs_aquafs.h"
 #include "../../base/file_system.h"
+#include "../fs_aquafs.h"
 
 using GFLAGS_NAMESPACE::ParseCommandLineFlags;
 using GFLAGS_NAMESPACE::RegisterFlagValidator;
@@ -89,7 +90,7 @@ Status aquafs_mount(std::unique_ptr<ZonedBlockDevice> &zbd,
     localAquaFS.reset();
   }
   *aquaFS = std::move(localAquaFS);
-
+  std::cout << "aquafs_mount" << std::endl;
   return s;
 }
 
@@ -384,7 +385,7 @@ IOStatus aquafs_tool_copy_file(FileSystem *f_fs, const std::string &f,
   if (!buffer) {
     return IOStatus::IOError("Failed to allocate copy buffer");
   }
-
+  // std::cout << "In copy file 1" << std::endl;
   while (to_copy > 0) {
     size_t chunk_sz = to_copy;
     Slice chunk_slice;
@@ -393,17 +394,27 @@ IOStatus aquafs_tool_copy_file(FileSystem *f_fs, const std::string &f,
 
     s = f_file->Read(chunk_sz, iopts, &chunk_slice, buffer.get(), &dbg);
     if (!s.ok()) {
+      // std::cout << "f_file read error" << std::endl;
       break;
     }
+    // std::cout << "In copy file 2" << std::endl;
+    std::cout << "To Copy Size before: " << to_copy << std::endl;
 
     s = t_file->Append(chunk_slice, iopts, &dbg);
+    if (!s.ok()) {
+      std::cout << "Append Fail" << std::endl;
+    }
     to_copy -= chunk_slice.size();
+    std::cout << "To Copy Size after: " << to_copy << std::endl;
+    // std::cout << "In copy file 3" << std::endl;
   }
 
   if (!s.ok()) {
+    std::cout << "t_file append error" << std::endl;
     return s;
   }
 
+  // std::cout << "In copy file 4" << std::endl;
   return t_file->Fsync(iopts, &dbg);
 }
 
@@ -445,15 +456,18 @@ IOStatus aquafs_tool_copy_dir(FileSystem *f_fs, const std::string &f_dir,
     if (is_dir) {
       s = t_fs->CreateDir(dest_filename, opts, &dbg);
       if (!s.ok()) {
+        // std::cout << "Create Dir Fail" << std::endl;
         return s;
       }
       s = aquafs_tool_copy_dir(f_fs, filename + "/", t_fs, dest_filename);
       if (!s.ok()) {
+        // std::cout << "Copy Dir Fail" << std::endl;
         return s;
       }
     } else {
       s = aquafs_tool_copy_file(f_fs, filename, t_fs, dest_filename);
       if (!s.ok()) {
+        std::cout << "Copy File Fail" << std::endl;
         return s;
       }
     }
@@ -732,8 +746,12 @@ int aquafs_tool_restore() {
   } else {
     AddDirSeparatorAtEnd(FLAGS_path);
     ReadWriteLifeTimeHints();
+    // std::cout << "copy in restore begin"
+    //           << ", copy to restore_path : " << FLAGS_restore_path <<
+    //           std::endl;
     io_status = aquafs_tool_copy_dir(f_fs, FLAGS_path, aquaFS.get(),
                                      FLAGS_restore_path);
+    // std::cout << "copy in restore end" << std::endl;
   }
 
   if (!io_status.ok()) {
