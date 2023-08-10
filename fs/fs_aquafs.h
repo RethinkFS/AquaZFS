@@ -248,10 +248,6 @@ class AquaFS : public FileSystemWrapper {
 
   Status RecoverFrom(AquaMetaLog *log);
 
-  std::string ToAuxPath(std::string path) {
-    return superblock_->GetAuxFsPath() + path;
-  }
-
   std::string ToAquaFSPath(std::string aux_path) {
     std::string path = aux_path;
     path.erase(0, superblock_->GetAuxFsPath().length());
@@ -314,6 +310,10 @@ class AquaFS : public FileSystemWrapper {
       return IOStatus::OK();
     }
     return target()->IsDirectory(ToAuxPath(path), options, is_dir, dbg);
+  }
+ public:
+  std::string ToAuxPath(std::string path) {
+    return superblock_->GetAuxFsPath() + path;
   }
 
 protected:

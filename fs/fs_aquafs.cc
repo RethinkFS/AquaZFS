@@ -725,7 +725,8 @@ IOStatus AquaFS::ReuseWritableFile(const std::string &filename,
 IOStatus AquaFS::FileExists(const std::string &filename,
                             const IOOptions &options, IODebugContext *dbg) {
   std::string fname = FormatPathLexically(filename);
-  Debug(logger_, "FileExists: %s \n", fname.c_str());
+  Debug(logger_, "aquafs FileExists %s: %s\n", fname.c_str(),
+        (GetFile(fname) == nullptr ? "false" : "true"));
 
   if (GetFile(fname) == nullptr) {
     return target()->FileExists(ToAuxPath(fname), options, dbg);

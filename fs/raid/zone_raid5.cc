@@ -11,6 +11,7 @@
 
 #include "../zbd_aquafs.h"
 #include "zone_raid.h"
+#include "../zbdlib_aquafs.h"
 
 #ifdef AQUAFS_RAID_URING
 #include "../../liburing4cpp/include/liburing/io_service.hpp"
@@ -350,7 +351,8 @@ int Raid5ZoneBlockDevice::Write(char *data, uint32_t size, uint64_t pos) {
   }
   while (size > 0) {
     auto req_size =
-        std::min(size, static_cast<int>(GetBlockSize() - pos % GetBlockSize()));
+        std::min(static_cast<int>(size),
+                 static_cast<int>(GetBlockSize() - pos % GetBlockSize()));
     if (req_size == 0) break;
     auto be = bes[get_idx_dev(pos)];
     assert(be != nullptr);

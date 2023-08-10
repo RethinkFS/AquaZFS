@@ -558,7 +558,8 @@ public:
       case ENAMETOOLONG:
       case ENOENT:
       case ENOTDIR:
-        return IOStatus::NotFound();
+        return IOStatus::NotFound("posix FileExists: " + fname + ", errno=" +
+                                  std::to_string(err));
       default:
         assert(err == EIO || err == ENOMEM);
         return IOStatus::IOError("Unexpected error(" + std::to_string(err) +
